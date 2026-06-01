@@ -108,6 +108,7 @@ async function getApplicationDataForPdf(appId: number): Promise<any> {
       hofAddress: app.families?.hofAddress || app.families?.hof_address || '',
       hofCategory: app.families?.hofCategory || app.families?.hof_category || '',
       householdId: app.families?.householdId || app.families?.household_id || '',
+      casteCertificatePath: app.families?.casteCertificatePath || app.families?.caste_certificate_path || '',
       members: app.members || [],
       bankDetails: app.bank_details || app.bankDetails || [],
       epicDetails: app.epic_details || app.epicDetails || {},
@@ -156,6 +157,7 @@ async function getApplicationDataForPdf(appId: number): Promise<any> {
     hofAddress: f.hof_address || '',
     hofCategory: f.hof_category || '',
     householdId: f.household_id || '',
+    casteCertificatePath: f.caste_certificate_path || '',
     members: membersRes.rows.map(m => ({
       name: m.name,
       dob: m.dob ? m.dob.toISOString().split('T')[0] : '',

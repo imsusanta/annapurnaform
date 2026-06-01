@@ -414,6 +414,52 @@ function parseTextForDocument(text: string, type: string): any {
     if (acMatch) {
       result.extracted.acPartNumber = acMatch[1];
     }
+  } else if (type === 'ration_card') {
+    // 1. Digital Ration Card ID / Household ID
+    const rcMatch = text.match(/\b(SPHH|PHH|AAY|RKSY[12]|RKSY|GEN)\s*(\d{10})\b/i) || 
+                    text.match(/Ration\s*Card\s*ID\s*:\s*([A-Z0-9\s]+)/i) || 
+                    text.match(/Card\s*No\s*[:\s]+([A-Z0-9\s]+)/i);
+    
+    if (rcMatch) {
+      const fullId = rcMatch[0].replace(/Ration\s*Card\s*ID\s*:\s*/i, '').trim();
+      result.extracted.householdId = fullId;
+      
+      const typeMatch = fullId.match(/\b(SPHH|PHH|AAY|RKSY[12]|RKSY|GEN)\b/i);
+      if (typeMatch) {
+        result.extracted.cardType = typeMatch[1].toUpperCase();
+      }
+    }
+
+    // 2. Card Holder Name / HOF Name
+    const nameMatch = text.match(/Name\s*of\s*the\s*Card\s*Holder\s*:\s*([A-Za-z\s]+)/i) ||
+                      text.match(/Card\s*Holder\s*[:\-]?\s*([A-Za-z\s]+)/i) ||
+                      text.match(/Name\s*:\s*([A-Za-z\s]+)/i);
+                      
+    if (nameMatch) {
+      result.extracted.fullName = nameMatch[1].trim();
+    }
+
+    // 3. Father/Husband's Name
+    const fatherMatch = text.match(/Father\/Husband\s*:\s*([A-Za-z\s]+)/i) ||
+                        text.match(/Name\s*of\s*Father\/Husband\s*:\s*([A-Za-z\s]+)/i);
+    if (fatherMatch) {
+      result.extracted.fatherHusbandName = fatherMatch[1].trim();
+    }
+  } else if (type === 'caste_certificate') {
+    // Extract Caste Certificate Number
+    const certMatch = text.match(/\b\d{10,20}\b/) || text.match(/[A-Z0-9\/]{10,25}/i);
+    if (certMatch) {
+      result.extracted.certificateNumber = certMatch[0];
+    }
+    
+    // Extract Category
+    if (/\b(?:scheduled\s+caste|sc)\b/i.test(text)) {
+      result.extracted.category = 'SC';
+    } else if (/\b(?:scheduled\s+tribe|st)\b/i.test(text)) {
+      result.extracted.category = 'ST';
+    } else if (/\b(?:obc|other\s+backward)\b/i.test(text)) {
+      result.extracted.category = 'OBC';
+    }
   }
 
   return result;

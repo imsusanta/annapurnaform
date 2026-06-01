@@ -164,7 +164,7 @@ export default function LoginPage() {
 
           {/* Step 1: Mobile Form */}
           {step === 'mobile' && (
-            <form onSubmit={handleSendOtp} className="space-y-6 relative z-10">
+            <div className="space-y-6 relative z-10">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block uppercase tracking-wider">
                   {t('mobileNumber')}
@@ -175,6 +175,7 @@ export default function LoginPage() {
                     type="tel"
                     required
                     maxLength={10}
+                    autoComplete="off"
                     value={mobileNumber}
                     onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ''))}
                     placeholder={t('mobilePlaceholder')}
@@ -184,18 +185,19 @@ export default function LoginPage() {
               </div>
               
               <button
-                type="submit"
+                type="button"
+                onClick={(e) => handleSendOtp(e as any)}
                 disabled={loading}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm tracking-wider uppercase rounded-xl transition-all shadow-md shadow-emerald-500/10 active:scale-[0.98] cursor-pointer"
               >
                 {loading ? t('verifying') : t('sendOtp')}
               </button>
-            </form>
+            </div>
           )}
 
           {/* Step 2: OTP Form */}
           {step === 'otp' && (
-            <form onSubmit={handleVerifyOtp} className="space-y-6 relative z-10">
+            <div className="space-y-6 relative z-10">
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block uppercase tracking-wider">
@@ -215,6 +217,7 @@ export default function LoginPage() {
                     type="text"
                     required
                     maxLength={6}
+                    autoComplete="off"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                     placeholder={t('otpPlaceholder')}
@@ -224,13 +227,14 @@ export default function LoginPage() {
               </div>
 
               <button
-                type="submit"
+                type="button"
+                onClick={(e) => handleVerifyOtp(e as any)}
                 disabled={loading}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm tracking-wider uppercase rounded-xl transition-all shadow-md active:scale-[0.98] cursor-pointer"
               >
                 {loading ? t('loggingIn') : t('verifyOtp')}
               </button>
-            </form>
+            </div>
           )}
 
           {/* System Security Notice */}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLanguage } from '../LanguageContext';
-import { Sun, Moon, ArrowLeft, ArrowRight, Save, Eye, CheckCircle2, UploadCloud, Trash2, Printer, Download, Sparkles, Languages, RefreshCw, FileText } from 'lucide-react';
+import { Sun, Moon, ArrowLeft, ArrowRight, Save, Eye, CheckCircle2, UploadCloud, Trash2, Printer, Download, Sparkles, Languages, RefreshCw, FileText, Camera, RotateCw, X } from 'lucide-react';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
@@ -166,6 +166,12 @@ function ApplyWizard() {
   const [ocrConfidence, setOcrConfidence] = useState<number>(0);
   const [ocrFeedback, setOcrFeedback] = useState<string | null>(null);
 
+  // Camera scanning state
+  const [cameraActive, setCameraActive] = useState<string | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
   // Pad arrays utility to ensure nested indices always exist
   const padArrays = (data: any) => {
     const members = [...(data.members || [])];
@@ -208,7 +214,8 @@ function ApplyWizard() {
       householdId: '',
       aadhaarFrontPath: '',
       aadhaarBackPath: '',
-      rationCardPath: ''
+      rationCardPath: '',
+      casteCertificatePath: ''
     },
     members: [] as FamilyMember[],
     bankDetails: [] as BankInfo[],
@@ -635,7 +642,11 @@ function ApplyWizard() {
           next.family.aadhaarBackPath = fileUrl;
         } else if (docType === 'ration_card') {
           next.family.householdId = extractedData.householdId || next.family.householdId;
+          next.family.hofName = extractedData.fullName || next.family.hofName;
           next.family.rationCardPath = fileUrl;
+        } else if (docType === 'caste_certificate') {
+          next.family.casteCertificatePath = fileUrl;
+          next.family.hofCategory = extractedData.category || next.family.hofCategory;
         } else if (docType === 'voter_card') {
           next.epicDetails.epicNumber = extractedData.epicNumber || next.epicDetails.epicNumber;
           next.epicDetails.acPartNumber = extractedData.acPartNumber || next.epicDetails.acPartNumber;
@@ -695,6 +706,9 @@ function ApplyWizard() {
       } else if (docType === 'ration_card') {
         next.family.rationCardPath = '';
         next.family.householdId = '';
+      } else if (docType === 'caste_certificate') {
+        next.family.casteCertificatePath = '';
+        next.family.hofCategory = '';
       } else if (docType === 'voter_card') {
         next.epicDetails.voterCardPath = '';
         next.epicDetails.epicNumber = '';
@@ -712,6 +726,108 @@ function ApplyWizard() {
       }
       return next;
     });
+  };
+
+  // Manage Camera Streaming Activation & Facing Mode
+  useEffect(() => {
+    if (!cameraActive) {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        setCameraStream(null);
+      }
+      return;
+    }
+
+    let activeStream: MediaStream | null = null;
+    const startCamera = async () => {
+      try {
+        const constraints = {
+          video: {
+            facingMode: facingMode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        activeStream = stream;
+        setCameraStream(stream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(e => console.error("Error playing video:", e));
+        }
+      } catch (err: any) {
+        console.error("Camera access error:", err);
+        // Try fallback without width/height ideal constraints
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: facingMode }, 
+            audio: false 
+          });
+          activeStream = stream;
+          setCameraStream(stream);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(e => console.error("Error playing video fallback:", e));
+          }
+        } catch (fallbackErr: any) {
+          console.error("Camera fallback access error:", fallbackErr);
+          alert(language === 'en' 
+            ? "Failed to open camera. Please grant camera permissions or use manual upload."
+            : "ক্যামেরা খুলতে ব্যর্থ হয়েছে। অনুগ্রহ করে ক্যামেরার অনুমতি দিন অথবা ফাইল আপলোড অপশনটি ব্যবহার করুন।");
+          setCameraActive(null);
+        }
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraActive, facingMode]);
+
+  // Capture Image from Video frame & Trigger OCR Upload
+  const handleCapturePhoto = async () => {
+    if (!videoRef.current || !cameraActive) return;
+
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Draw the current video frame on canvas
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert canvas to Blob (file)
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+
+      // Create a File object from blob to pass to the upload OCR function
+      const fileName = `camera_${cameraActive}_${Date.now()}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+
+      // Stop camera stream
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        setCameraStream(null);
+      }
+      setCameraActive(null);
+
+      // Trigger the OCR upload directly!
+      const mockEvent = {
+        target: {
+          files: [file]
+        }
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+
+      handleFileUploadAndOcr(mockEvent, cameraActive);
+    }, 'image/png');
   };
 
   const toggleDarkMode = () => {
@@ -1254,6 +1370,7 @@ function ApplyWizard() {
                 { key: 'aadhaar_front', label: t('uploadAadhaarFront'), path: formData.family.aadhaarFrontPath },
                 { key: 'aadhaar_back', label: t('uploadAadhaarBack'), path: formData.family.aadhaarBackPath },
                 { key: 'ration_card', label: t('uploadRation'), path: formData.family.rationCardPath },
+                { key: 'caste_certificate', label: t('uploadCaste'), path: formData.family.casteCertificatePath || '' },
                 { key: 'passbook', label: t('uploadPassbook'), path: formData.bankDetails.find(b => !!b.passbookPath)?.passbookPath || '' },
                 { key: 'voter_card', label: t('uploadVoter'), path: formData.epicDetails.voterCardPath },
                 { key: 'pan_card', label: t('uploadPan'), path: formData.panDetails.panCardPath }
@@ -1321,6 +1438,16 @@ function ApplyWizard() {
                             className="hidden" 
                           />
                         </label>
+
+                        <button
+                          type="button"
+                          onClick={() => setCameraActive(doc.key)}
+                          disabled={ocrLoading !== null}
+                          className="text-[9px] font-extrabold uppercase bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 px-2.5 py-1 rounded-md cursor-pointer flex items-center gap-1 transition-all"
+                        >
+                          <Camera className="w-3 h-3" />
+                          <span>{language === 'en' ? 'Scan' : 'স্ক্যান'}</span>
+                        </button>
                       </div>
                     )}
                   </li>
@@ -1763,6 +1890,86 @@ function ApplyWizard() {
         </section>
 
       </main>
+
+      {/* 5. Direct Mobile Camera Capture Scanner Modal */}
+      {cameraActive && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 backdrop-blur-md animate-fade-in p-4 sm:p-6">
+          <div className="bg-slate-950 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl w-full max-w-lg relative flex flex-col items-center">
+            
+            {/* Modal Title and Controls */}
+            <div className="w-full px-6 py-4 flex items-center justify-between border-b border-slate-900">
+              <div className="flex items-center gap-2">
+                <Camera className="w-5 h-5 text-emerald-500 animate-pulse" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  {language === 'en' ? 'Mobile Camera Scanner' : 'মোবাইল ক্যামেরা স্ক্যানার'}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setCameraActive(null)}
+                className="p-1.5 hover:bg-slate-900 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Video Viewport with guideline scanner box */}
+            <div className="w-full relative aspect-[4/3] bg-black flex items-center justify-center overflow-hidden">
+              <video 
+                ref={videoRef} 
+                playsInline 
+                muted 
+                className="w-full h-full object-cover transform scale-x-1"
+              />
+
+              {/* Scanning Target Guide Overlay */}
+              <div className="absolute inset-0 flex items-center justify-center p-8 pointer-events-none">
+                <div className="w-full h-full border-2 border-dashed border-emerald-500/50 rounded-2xl relative">
+                  {/* Glowing scanner line animation */}
+                  <div className="absolute left-0 right-0 h-0.5 bg-emerald-400 shadow-md shadow-emerald-400/50 animate-bounce top-1/2"></div>
+                  
+                  {/* Guideline corner marks */}
+                  <div className="absolute top-2 left-2 text-[8px] font-bold uppercase text-emerald-400 bg-black/60 px-1.5 py-0.5 rounded tracking-widest">
+                    {language === 'en' ? 'Align Document Here' : 'নথিপত্রটি এখানে মেলান'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Controls */}
+            <div className="w-full p-6 flex items-center justify-between border-t border-slate-900 bg-slate-950/80 gap-4 shrink-0">
+              {/* Toggle camera orientation front/back */}
+              <button
+                type="button"
+                onClick={() => setFacingMode(prev => prev === 'environment' ? 'user' : 'environment')}
+                className="p-3 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-full transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                title="Switch Camera Mode"
+              >
+                <RotateCw className="w-4 h-4" />
+                <span className="hidden sm:inline">{facingMode === 'environment' ? 'Rear' : 'Front'}</span>
+              </button>
+
+              {/* Main Trigger shutter button */}
+              <button
+                type="button"
+                onClick={handleCapturePhoto}
+                className="p-1 bg-white hover:bg-slate-100 rounded-full cursor-pointer shadow-lg active:scale-95 transition-all outline outline-offset-4 outline-2 outline-white flex items-center justify-center shrink-0 w-16 h-16"
+              >
+                <div className="w-14 h-14 rounded-full border-2 border-slate-950 bg-white flex items-center justify-center font-black text-slate-950 text-xs">SCAN</div>
+              </button>
+
+              {/* Cancel scan button */}
+              <button
+                type="button"
+                onClick={() => setCameraActive(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-red-950/40 text-slate-400 hover:text-red-400 rounded-xl transition-all font-bold text-xs uppercase tracking-wider cursor-pointer border border-slate-800"
+              >
+                {language === 'en' ? 'Cancel' : 'বাতিল'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="w-full py-6 text-center text-[10px] text-slate-400 dark:text-slate-600 tracking-wide border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 transition-colors mt-auto">

@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS families (
   household_id VARCHAR(50), -- Digital Ration Card Household ID
   aadhaar_front_path TEXT,
   aadhaar_back_path TEXT,
-  ration_card_path TEXT
+  ration_card_path TEXT,
+  caste_certificate_path TEXT
 );
 
 -- Family Members Table
@@ -141,3 +142,4 @@ CREATE INDEX IF NOT EXISTS idx_user_mobile ON users(mobile_number);
 -- Startup migration to ensure extra_fields column is added to existing database tables
 ALTER TABLE assets ADD COLUMN IF NOT EXISTS extra_fields TEXT;
 ALTER TABLE pan_details ADD COLUMN IF NOT EXISTS pan_holder_name VARCHAR(100);
+ALTER TABLE families ADD COLUMN IF NOT EXISTS caste_certificate_path TEXT;

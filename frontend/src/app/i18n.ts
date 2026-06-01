@@ -179,6 +179,7 @@ export const translations = {
     uploadPassbook: 'HOF Bank Passbook Scan',
     uploadVoter: 'HOF Voter Card Scan',
     uploadPan: 'HOF PAN Card Scan',
+    uploadCaste: 'HOF Caste Certificate Scan',
     uploadAadhaarMember: 'Member Aadhaar Card Scan',
     
     // Step 12: Review and Sign
@@ -405,6 +406,7 @@ export const translations = {
     uploadPassbook: 'পরিবারের প্রধানের ব্যাংক পাসবুক',
     uploadVoter: 'পরিবারের প্রধানের ভোটার কার্ড (EPIC)',
     uploadPan: 'পরিবারের প্রধানের প্যান কার্ড',
+    uploadCaste: 'পরিবারের প্রধানের জাতিগত শংসাপত্র (Caste Certificate)',
     uploadAadhaarMember: 'সদস্যের আধার কার্ড স্ক্যান',
     
     // Step 12: Review and Sign

@@ -162,9 +162,10 @@ export const saveApplication = async (req: AuthenticatedRequest, res: Response) 
         `UPDATE families SET 
           hof_name = $1, hof_dob = $2, hof_gender = $3, hof_aadhaar = $4, hof_mobile = $5, 
           hof_address = $6, hof_category = $7, household_id = $8,
-          aadhaar_front_path = $9, aadhaar_back_path = $10, ration_card_path = $11
-         WHERE application_id = $12`,
-        [f.hofName, f.hofDob || null, f.hofGender, f.hofAadhaar, f.hofMobile, f.hofAddress, f.hofCategory, f.householdId, f.aadhaarFrontPath, f.aadhaarBackPath, f.rationCardPath, appId]
+          aadhaar_front_path = $9, aadhaar_back_path = $10, ration_card_path = $11,
+          caste_certificate_path = $12
+         WHERE application_id = $13`,
+        [f.hofName, f.hofDob || null, f.hofGender, f.hofAadhaar, f.hofMobile, f.hofAddress, f.hofCategory, f.householdId, f.aadhaarFrontPath, f.aadhaarBackPath, f.rationCardPath, f.casteCertificatePath || null, appId]
       );
     }
 
@@ -418,7 +419,8 @@ export const getApplication = async (req: AuthenticatedRequest, res: Response) =
       householdId: familyData.household_id,
       aadhaarFrontPath: familyData.aadhaar_front_path,
       aadhaarBackPath: familyData.aadhaar_back_path,
-      rationCardPath: familyData.ration_card_path
+      rationCardPath: familyData.ration_card_path,
+      casteCertificatePath: familyData.caste_certificate_path || ''
     };
 
     const formattedMembers = membersRes.rows.map(m => ({
