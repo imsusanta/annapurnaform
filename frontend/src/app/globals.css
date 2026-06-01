@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  
+  --primary: #059669; /* Emerald 600 */
+  --primary-hover: #047857; /* Emerald 700 */
+  --primary-light: #ecfdf5; /* Emerald 50 */
+  
+  --secondary: #0284c7; /* Sky 600 */
+  --secondary-hover: #0369a1; /* Sky 700 */
+  
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  
+  --border: #e2e8f0;
+  --input-bg: #ffffff;
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  
+  --radius: 12px;
+}
+
+/* Dark Mode Configuration (controlled by .dark class on html) */
+.dark {
+  --background: #0f172a; /* Slate 900 */
+  --foreground: #f8fafc; /* Slate 50 */
+  --card: #1e293b; /* Slate 800 */
+  --card-foreground: #f8fafc;
+  
+  --primary: #10b981; /* Emerald 500 */
+  --primary-hover: #34d399; /* Emerald 400 */
+  --primary-light: #064e3b; /* Deep green */
+  
+  --secondary: #38bdf8; /* Sky 400 */
+  --secondary-hover: #7dd3fc;
+  
+  --border: #334155; /* Slate 700 */
+  --input-bg: #0f172a;
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+  opacity: 0.8;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Accessibility and custom outlines */
+input:focus-visible, 
+select:focus-visible, 
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* Expand tap targets on touchscreen */
+@media (pointer: coarse) {
+  input, select, button, textarea {
+    min-height: 48px;
+  }
+}
+
+/* Micro-animations */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom Checkbox accent color */
+input[type="checkbox"], input[type="radio"] {
+  accent-color: var(--primary);
+}

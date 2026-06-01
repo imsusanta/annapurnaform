@@ -1,0 +1,40 @@
+# Dependency directories
+**/node_modules/
+node_modules/
+
+# Next.js build output
+**/frontend/.next/
+frontend/.next/
+**/.next/
+
+# TypeScript build info
+**/tsconfig.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Production build and dist folders
+**/backend/dist/
+backend/dist/
+**/dist/
+
+# Local env files
+**/backend/.env
+backend/.env
+**/.env
+**/*.env.local
+**/*.env.development
+**/*.env.production
+
+# OCR training data / large files
+**/backend/eng.traineddata
+backend/eng.traineddata
+
+# Temp/uploads directories
+**/backend/uploads/*
+!**/backend/uploads/.gitkeep
+backend/uploads/*
+uploads/
+
+# OS specific files
+.DS_Store
+**/.DS_Store
+Thumbs.db
