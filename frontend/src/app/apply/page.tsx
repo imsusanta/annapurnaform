@@ -502,8 +502,6 @@ function ApplyWizard() {
       'assets.healthInsurancePrivate': { en: 'Insurance: Private', bn: 'বেসরকারি স্বাস্থ্য বীমা' },
       'assets.premium': { en: 'Annual Premium Paid', bn: 'বার্ষিক প্রিমিয়াম' },
       'assets.sumAssured': { en: 'Sum Assured', bn: 'বীমাকৃত অর্থ' },
-
-      'panDetails.panNumber': { en: 'PAN Card Number', bn: 'প্যান কার্ড নম্বর' },
       'family.literateCount': { en: 'Total Literate Members', bn: 'মোট শিক্ষিত সদস্য সংখ্যা' },
       'family.illiterateCount': { en: 'Total Illiterate Members', bn: 'মোট অশিক্ষিত সদস্য সংখ্যা' },
       
