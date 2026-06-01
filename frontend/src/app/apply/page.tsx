@@ -580,8 +580,8 @@ function ApplyWizard() {
     }
   };
 
-  const saveDraftToServer = async (showUINotif = true) => {
-    if (isViewOnly || !token || !appId) return;
+  const saveDraftToServer = async (showUINotif = true): Promise<boolean> => {
+    if (isViewOnly || !token || !appId) return true;
     if (showUINotif) setSaveStatus('saving');
 
     try {
@@ -596,9 +596,14 @@ function ApplyWizard() {
       );
       if (showUINotif) setSaveStatus('saved');
       setLastSavedTime(new Date().toLocaleTimeString());
-    } catch (err) {
+      return true;
+    } catch (err: any) {
       console.error(err);
       if (showUINotif) setSaveStatus('error');
+      if (err.response?.data?.isDuplicateAadhaar) {
+        alert(t('duplicateAadhaarError') || 'Error: Aadhaar card number is already registered in the system!');
+      }
+      return false;
     }
   };
 
@@ -1336,7 +1341,10 @@ function ApplyWizard() {
                 return (
                   <button
                     key={pg.page}
-                    onClick={() => { saveDraftToServer(false); setStep(pg.page); }}
+                    onClick={async () => {
+                      const ok = await saveDraftToServer(false);
+                      if (ok) setStep(pg.page);
+                    }}
                     className={`p-2.5 rounded-lg border text-left text-xs transition-all w-full flex flex-col cursor-pointer ${
                       isActive 
                         ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/10 text-emerald-700 dark:text-emerald-400' 
@@ -1839,7 +1847,10 @@ function ApplyWizard() {
           {/* Action progress control buttons */}
           <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-6 mt-6">
             <button
-              onClick={() => { saveDraftToServer(false); if(step > 1) setStep(step - 1); }}
+              onClick={async () => {
+                const ok = await saveDraftToServer(false);
+                if (ok && step > 1) setStep(step - 1);
+              }}
               disabled={step === 1}
               className="px-4 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-30 font-bold text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 cursor-pointer transition-all"
             >
@@ -1866,7 +1877,10 @@ function ApplyWizard() {
 
               {step < 11 ? (
                 <button
-                  onClick={() => { saveDraftToServer(false); setStep(step + 1); }}
+                  onClick={async () => {
+                    const ok = await saveDraftToServer(false);
+                    if (ok) setStep(step + 1);
+                  }}
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 cursor-pointer transition-all"
                 >
                   <span>{t('next')}</span>

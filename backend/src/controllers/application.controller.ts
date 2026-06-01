@@ -84,6 +84,35 @@ export const saveApplication = async (req: AuthenticatedRequest, res: Response) 
   const data = req.body; // Full application JSON structure
 
   try {
+    // 1. Validate HOF Duplicate Aadhaar
+    if (data.family && data.family.hofAadhaar) {
+      const cleanAadhaar = data.family.hofAadhaar.toString().trim();
+      if (cleanAadhaar) {
+        const normalizedInput = cleanAadhaar.replace(/\D/g, '');
+        if (isUsingMockDb()) {
+          const duplicate = getMockStore().applications.find(a => {
+            if (a.id === appId) return false;
+            const aAadhaar = (a.families?.hofAadhaar || a.families?.hof_aadhaar || '').toString().replace(/\D/g, '');
+            return aAadhaar && aAadhaar === normalizedInput;
+          });
+          if (duplicate) {
+            return res.status(400).json({ error: 'duplicateAadhaarError', isDuplicateAadhaar: true });
+          }
+        } else {
+          // Postgres check with formatting normalization
+          const dupCheck = await query(
+            `SELECT application_id FROM families 
+             WHERE (hof_aadhaar = $1 OR replace(replace(hof_aadhaar, ' ', ''), '-', '') = $2) 
+               AND application_id != $3`,
+            [cleanAadhaar, normalizedInput, appId]
+          );
+          if (dupCheck.rows.length > 0) {
+            return res.status(400).json({ error: 'duplicateAadhaarError', isDuplicateAadhaar: true });
+          }
+        }
+      }
+    }
+
     if (isUsingMockDb()) {
       let app = getMockStore().applications.find(a => a.id === appId);
       if (app && app.user_id && req.user?.role !== 'admin' && app.user_id !== req.user?.id) {
