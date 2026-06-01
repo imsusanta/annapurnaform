@@ -7,6 +7,23 @@ import Tesseract from 'tesseract.js';
 const getMockOcrData = (docType: string, filename: string) => {
   const normalizedFilename = filename.toLowerCase();
 
+  // Only use mock/training data if the filename contains explicit test keywords
+  const isMockRequest = normalizedFilename.includes('mock') || 
+                        normalizedFilename.includes('test') || 
+                        normalizedFilename.includes('sample') || 
+                        normalizedFilename.includes('demo') || 
+                        normalizedFilename.includes('susanta') || 
+                        normalizedFilename.includes('rina') || 
+                        normalizedFilename.includes('lata');
+
+  if (!isMockRequest) {
+    return {
+      extracted: {},
+      confidence: 0,
+      message: 'No mock data requested.'
+    };
+  }
+
   // If the filename contains hints, use them to provide dynamic mock data
   const isFemale = normalizedFilename.includes('female') || normalizedFilename.includes('woman') || normalizedFilename.includes('rina') || normalizedFilename.includes('lata');
   

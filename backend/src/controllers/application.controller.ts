@@ -86,6 +86,10 @@ export const saveApplication = async (req: AuthenticatedRequest, res: Response) 
   try {
     if (isUsingMockDb()) {
       let app = getMockStore().applications.find(a => a.id === appId);
+      if (app && app.user_id && req.user?.role !== 'admin' && app.user_id !== req.user?.id) {
+        return res.status(403).json({ error: 'Access denied: You do not own this application draft' });
+      }
+      
       if (!app) {
         // Auto-seed/create the application to avoid 404s on save
         app = {
@@ -129,6 +133,17 @@ export const saveApplication = async (req: AuthenticatedRequest, res: Response) 
       if (data.signature) app.signatures = { ...app.signatures, ...data.signature };
 
       return res.status(200).json({ message: 'Application saved successfully (Mock DB)', application: app });
+    }
+
+    // PostgreSQL validation check first
+    if (req.user?.role !== 'admin') {
+      const checkRes = await query('SELECT user_id FROM applications WHERE id = $1', [appId]);
+      if (checkRes.rows.length > 0) {
+        const appOwner = checkRes.rows[0].user_id;
+        if (appOwner && appOwner !== req.user?.id) {
+          return res.status(403).json({ error: 'Access denied: You do not own this application draft' });
+        }
+      }
     }
 
     // PostgreSQL - Perform updates inside transactions
@@ -280,6 +295,10 @@ export const getApplication = async (req: AuthenticatedRequest, res: Response) =
   try {
     if (isUsingMockDb()) {
       let app = getMockStore().applications.find(a => a.id === appId);
+      if (app && app.user_id && req.user?.role !== 'admin' && app.user_id !== req.user?.id) {
+        return res.status(403).json({ error: 'Access denied: You do not own this application draft' });
+      }
+
       if (!app) {
         // Auto-seed/create the application to avoid 404s on refresh
         app = {
@@ -370,6 +389,11 @@ export const getApplication = async (req: AuthenticatedRequest, res: Response) =
       return res.status(404).json({ error: 'Application not found' });
     }
     const app = appRes.rows[0];
+
+    // Enforce operator privacy
+    if (app.user_id && req.user?.role !== 'admin' && app.user_id !== req.user?.id) {
+      return res.status(403).json({ error: 'Access denied: You do not own this application draft' });
+    }
 
     const familyRes = await query('SELECT * FROM families WHERE application_id = $1', [appId]);
     const membersRes = await query('SELECT * FROM members WHERE application_id = $1', [appId]);
@@ -497,12 +521,18 @@ export const getApplication = async (req: AuthenticatedRequest, res: Response) =
 // 4. Search and List Applications (Admin and Dashboard)
 export const listApplications = async (req: AuthenticatedRequest, res: Response) => {
   const { query: searchQuery, status } = req.query;
+  const isOperatorOnly = req.user?.role !== 'admin';
+  const userId = req.user?.id;
 
   try {
     let applicationsList: any[] = [];
 
     if (isUsingMockDb()) {
-      applicationsList = getMockStore().applications.map(a => ({
+      let filteredApps = getMockStore().applications;
+      if (isOperatorOnly) {
+        filteredApps = filteredApps.filter(a => a.user_id === userId);
+      }
+      applicationsList = filteredApps.map(a => ({
         id: a.id,
         application_id: a.application_id,
         hof_name: a.families?.hofName || a.families?.hof_name || 'N/A',
@@ -519,6 +549,11 @@ export const listApplications = async (req: AuthenticatedRequest, res: Response)
         WHERE 1=1
       `;
       const params: any[] = [];
+
+      if (isOperatorOnly) {
+        params.push(userId);
+        sql += ` AND a.user_id = $${params.length}`;
+      }
 
       if (status) {
         params.push(status);
@@ -567,16 +602,28 @@ export const listApplications = async (req: AuthenticatedRequest, res: Response)
 export const exportApplicationsExcel = async (req: AuthenticatedRequest, res: Response) => {
   try {
     let rows: any[] = [];
+    const isOperatorOnly = req.user?.role !== 'admin';
+    const userId = req.user?.id;
+
     if (isUsingMockDb()) {
       rows = getMockStore().applications;
+      if (isOperatorOnly) {
+        rows = rows.filter(a => a.user_id === userId);
+      }
     } else {
-      const dbRes = await query(`
+      let sql = `
         SELECT a.application_id, f.hof_name, f.hof_dob, f.hof_gender, f.hof_aadhaar, f.hof_mobile, f.hof_address, f.hof_category, f.household_id, e.epic_number, p.pan_number, a.status, a.ocr_confidence, a.created_at
         FROM applications a
         LEFT JOIN families f ON f.application_id = a.id
         LEFT JOIN epic_details e ON e.application_id = a.id
         LEFT JOIN pan_details p ON p.application_id = a.id
-      `);
+      `;
+      const params: any[] = [];
+      if (isOperatorOnly) {
+        params.push(userId);
+        sql += ` WHERE a.user_id = $1`;
+      }
+      const dbRes = await query(sql, params);
       rows = dbRes.rows.map(r => ({
         application_id: r.application_id,
         status: r.status,

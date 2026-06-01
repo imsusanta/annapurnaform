@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { AuthenticatedRequest } from '../middleware/auth';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import fs from 'fs';
 import path from 'path';
@@ -95,6 +96,7 @@ async function getApplicationDataForPdf(appId: number): Promise<any> {
     const app = getMockStore().applications.find(a => a.id === appId);
     if (!app) return null;
     return {
+      user_id: app.user_id,
       application_id: app.application_id,
       status: app.status,
       created_at: app.created_at,
@@ -142,6 +144,7 @@ async function getApplicationDataForPdf(appId: number): Promise<any> {
   const sig = sigRes.rows[0] || {};
 
   return {
+    user_id: app.user_id,
     application_id: app.application_id,
     status: app.status,
     created_at: app.created_at,
@@ -208,11 +211,17 @@ async function getApplicationDataForPdf(appId: number): Promise<any> {
 
 export const generatePdf = async (req: Request, res: Response) => {
   const appId = parseInt(req.params.id);
+  const authedReq = req as AuthenticatedRequest;
 
   try {
     const appData = await getApplicationDataForPdf(appId);
     if (!appData) {
       return res.status(404).json({ error: 'Application not found' });
+    }
+
+    // Verify ownership
+    if (appData.user_id && authedReq.user?.role !== 'admin' && appData.user_id !== authedReq.user?.id) {
+      return res.status(403).json({ error: 'Access denied: You do not own this application draft' });
     }
 
     // Check if custom template PDF exists in the assets folder
