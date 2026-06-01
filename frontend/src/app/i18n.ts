@@ -228,7 +228,30 @@ export const translations = {
     docRation: 'Digital Ration Card',
     docPassbook: 'Bank Passbook',
     docVoter: 'Voter Card (EPIC)',
-    docPan: 'PAN Card (Optional)'
+    docPan: 'PAN Card (Optional)',
+    
+    // Simplified 5-stage keys
+    scanDocs: '1. Scan Documents',
+    fillForm: '2. Simple Smart Form',
+    previewForm: '3. Form Preview',
+    upiPayment: '4. UPI Payment',
+    downloadPrint: '5. Download & Print',
+    paymentTitle: 'UPI Payment Checkout',
+    paymentSubtitle: 'Complete the small application charge to unlock high-fidelity PDF download',
+    scanQrCode: 'Scan QR Code to Pay',
+    payAppBtn: 'Pay using Phone UPI App',
+    verifyPayBtn: 'Verify Payment Status',
+    paySuccessMsg: 'Payment successful! Form unlocked.',
+    payAmount: 'Amount to Pay: ₹10',
+    autofilledFromAadhaar: 'Autofilled from HOF Aadhaar',
+    autofilledFromRation: 'Autofilled from Ration Card',
+    scannedSuccess: 'Scanned successfully',
+    hofSection: 'Head of Family Details',
+    familySection: 'Family Members Details',
+    bankAssetSection: 'Bank & Assets Details',
+    schemesChildrenSection: 'Government Schemes & Children Details',
+    scanTrayTitle: 'Document Scan Tray',
+    scanTraySubtitle: 'Scan necessary documents using your mobile phone camera or upload files to automatically fill the form'
   },
   bn: {
     title: 'অন্নপূর্ণা অটো ফর্ম ফিলআপ',
@@ -455,7 +478,30 @@ export const translations = {
     docRation: 'ডিজিটাল রেশন কার্ড',
     docPassbook: 'ব্যাংক পাসবুক',
     docVoter: 'ভোটার কার্ড (EPIC)',
-    docPan: 'প্যান কার্ড (ঐচ্ছিক)'
+    docPan: 'প্যান কার্ড (ঐচ্ছিক)',
+    
+    // Simplified 5-stage keys
+    scanDocs: '১. নথিপত্র স্ক্যান',
+    fillForm: '২. সহজ ফর্ম পূরণ',
+    previewForm: '৩. ফরম প্রিভিউ',
+    upiPayment: '৪. ইউপিআই পেমেন্ট',
+    downloadPrint: '৫. ডাউনলোড ও প্রিন্ট',
+    paymentTitle: 'ইউপিআই পেমেন্ট গেটওয়ে',
+    paymentSubtitle: 'আবেদনপত্রের হাই-কোয়ালিটি পিডিএফ ডাউনলোড করতে পেমেন্ট করুন',
+    scanQrCode: 'পেমেন্ট করতে এই কিউআর কোডটি স্ক্যান করুন',
+    payAppBtn: 'মোবাইল ইউপিআই অ্যাপ দিয়ে পেমেন্ট করুন',
+    verifyPayBtn: 'পেমেন্ট স্ট্যাটাস যাচাই করুন',
+    paySuccessMsg: 'পেমেন্ট সফল হয়েছে! ফরম ডাউনলোড অপশন চালু হয়েছে।',
+    payAmount: 'মোট টাকা: ১০ টাকা',
+    autofilledFromAadhaar: 'আধার কার্ড থেকে সংগৃহীত',
+    autofilledFromRation: 'রেশন কার্ড থেকে সংগৃহীত',
+    scannedSuccess: 'স্ক্যান সফল হয়েছে',
+    hofSection: 'পরিবারের প্রধানের তথ্য',
+    familySection: 'পরিবারের অন্যান্য সদস্যদের তথ্য',
+    bankAssetSection: 'ব্যাংক অ্যাকাউন্ট ও সম্পত্তির বিবরণ',
+    schemesChildrenSection: 'সরকারি প্রকল্পের সুবিধা ও শিশুদের বিবরণ',
+    scanTrayTitle: 'নথিপত্র স্ক্যান ট্রেই',
+    scanTraySubtitle: 'মোবাইল ক্যামেরা দিয়ে প্রয়োজনীয় নথি স্ক্যান করুন বা ফাইল আপলোড করুন, ফরমটি স্বয়ংক্রিয়ভাবে পূরণ হয়ে যাবে'
   }
 };
 export type TranslationsType = typeof translations.en;

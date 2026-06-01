@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLanguage } from '../LanguageContext';
-import { Sun, Moon, ArrowLeft, ArrowRight, Save, Eye, CheckCircle2, UploadCloud, Trash2, Printer, Download, Sparkles, Languages, RefreshCw, FileText, Camera, RotateCw, X } from 'lucide-react';
+import { Sun, Moon, ArrowLeft, ArrowRight, Save, Eye, CheckCircle2, UploadCloud, Trash2, Printer, Download, Sparkles, Languages, RefreshCw, FileText, Camera, RotateCw, X, Wallet, Check, Plus } from 'lucide-react';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
@@ -152,6 +152,9 @@ function ApplyWizard() {
 
   // Active PDF Page number (1 to 11)
   const [step, setStep] = useState(1);
+  const [wizardStage, setWizardStage] = useState<'scan' | 'form' | 'preview' | 'payment' | 'download'>('scan');
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'verifying' | 'success'>('pending');
+  const [formTab, setFormTab] = useState<'hof' | 'members' | 'bank' | 'schemes'>('hof');
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [lastSavedTime, setLastSavedTime] = useState<string>('');
@@ -541,6 +544,30 @@ function ApplyWizard() {
     }
   }, [appId]);
 
+  // Load PDF Preview automatically when Entering Step 3 (Preview)
+  useEffect(() => {
+    if (wizardStage === 'preview' && appId && token) {
+      const compilePdf = async () => {
+        setPreviewLoading(true);
+        try {
+          await saveDraftToServer(false);
+          const res = await axios.get(`${BACKEND_URL}/api/applications/${appId}/pdf`, {
+            headers: { Authorization: `Bearer ${token}` },
+            responseType: 'blob'
+          });
+          const blob = new Blob([res.data], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+          setPreviewUrl(url);
+        } catch (err) {
+          console.error("Error pre-loading PDF preview:", err);
+        } finally {
+          setPreviewLoading(false);
+        }
+      };
+      compilePdf();
+    }
+  }, [wizardStage, appId, token]);
+
   // Periodic autosave
   useEffect(() => {
     if (isViewOnly || !token || !appId) return;
@@ -572,6 +599,16 @@ function ApplyWizard() {
       }));
       if (res.data.current_step) setStep(res.data.current_step);
       if (res.data.ocr_confidence) setOcrConfidence(res.data.ocr_confidence);
+
+      // Auto route to final stages if submitted or based on draft progress
+      if (res.data.status === 'submitted') {
+        setWizardStage('download');
+        setPaymentStatus('success');
+      } else if (res.data.current_step >= 10) {
+        setWizardStage('preview');
+      } else {
+        setWizardStage('scan');
+      }
     } catch (err) {
       console.error(err);
       setOcrFeedback('Failed to load application data.');
@@ -1310,600 +1347,1240 @@ function ApplyWizard() {
         </div>
       </header>
 
-      {/* Main Grid Workspace */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      {/* Simplified Wizard Timeline Navigation Tracker */}
+      <div className="w-full bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 py-4 px-6 transition-colors shadow-sm shrink-0">
+        <div className="max-w-[1400px] mx-auto flex items-center justify-between overflow-x-auto gap-4 scrollbar-none py-1">
+          {[
+            { id: 'scan', label: t('scanDocs') || 'Scan Documents', num: '1', activeColor: 'border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20' },
+            { id: 'form', label: t('fillForm') || 'Fill Smart Form', num: '2', activeColor: 'border-sky-500 text-sky-600 bg-sky-50 dark:bg-sky-950/20' },
+            { id: 'preview', label: t('previewForm') || 'Preview Form', num: '3', activeColor: 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950/20' },
+            { id: 'payment', label: t('upiPayment') || 'UPI Payment', num: '4', activeColor: 'border-indigo-500 text-indigo-600 bg-indigo-50 dark:bg-indigo-950/20' },
+            { id: 'download', label: t('downloadPrint') || 'Download & Print', num: '5', activeColor: 'border-purple-500 text-purple-600 bg-purple-50 dark:bg-purple-950/20' }
+          ].map((stg, index) => {
+            const isActive = wizardStage === stg.id;
+            const isCompleted = ['scan', 'form', 'preview', 'payment', 'download'].indexOf(wizardStage) > ['scan', 'form', 'preview', 'payment', 'download'].indexOf(stg.id);
+            return (
+              <div key={stg.id} className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={isViewOnly && stg.id === 'payment'}
+                  onClick={() => {
+                    if (stg.id === 'download' && paymentStatus !== 'success') return;
+                    if (stg.id === 'payment' && !formData.family.hofAadhaar) return;
+                    setWizardStage(stg.id as any);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    isActive 
+                      ? stg.activeColor 
+                      : isCompleted
+                        ? 'border-emerald-200 dark:border-emerald-900 bg-emerald-50/20 text-emerald-600'
+                        : 'border-transparent text-slate-400 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-900'
+                  }`}
+                >
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-extrabold shadow-sm ${
+                    isCompleted 
+                      ? 'bg-emerald-600 text-white' 
+                      : isActive 
+                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950' 
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-600'
+                  }`}>
+                    {isCompleted ? '✓' : stg.num}
+                  </span>
+                  <span>{stg.label}</span>
+                </button>
+                {index < 4 && (
+                  <span className="text-slate-300 dark:text-slate-800 font-light hidden sm:inline">➜</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Main Workspace Frame */}
+      <main className="flex-1 max-w-[1400px] w-full mx-auto p-6 flex flex-col justify-start">
         
-        {/* Left Sidebar: Nav tabs and required documents */}
-        <aside className="lg:col-span-3 space-y-6 lg:sticky lg:top-24 w-full">
-          
-          {/* Visual page selector mapping to original form layout */}
-          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-5 space-y-3">
-            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-900 pb-3">
-              <FileText className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">{t('formLayoutMap')}</h3>
-            </div>
-            
-            <div className="grid grid-cols-4 lg:grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1">
-              {[
-                { page: 1, desc: 'HOF & Members 1-3' },
-                { page: 2, desc: 'Members 4-5, Banks, EPIC' },
-                { page: 3, desc: 'EPIC 3-5, Category, Assets, Ins' },
-                { page: 4, desc: 'PAN, Nature of Employment' },
-                { page: 5, desc: 'Employment Members, Literacy HOF & 1-4' },
-                { page: 6, desc: 'Literacy Member 5, Annual Income' },
-                { page: 7, desc: 'Guidelines Page (Read-only)' },
-                { page: 8, desc: 'Child Education & Vaccination' },
-                { page: 9, desc: 'Child Vaccination Cards' },
-                { page: 10, desc: 'Consent Agreement & Signature' },
-                { page: 11, desc: 'Acknowledgement Receipt' }
-              ].map((pg) => {
-                const isActive = step === pg.page;
-                return (
-                  <button
-                    key={pg.page}
-                    onClick={async () => {
-                      const ok = await saveDraftToServer(false);
-                      if (ok) setStep(pg.page);
-                    }}
-                    className={`p-2.5 rounded-lg border text-left text-xs transition-all w-full flex flex-col cursor-pointer ${
-                      isActive 
-                        ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/10 text-emerald-700 dark:text-emerald-400' 
-                        : 'border-slate-100 dark:border-slate-900 bg-slate-50/20 dark:bg-slate-900/5 text-slate-500 dark:text-slate-400'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full mb-1">
-                      <span className="font-extrabold uppercase tracking-wide text-[9px]">
-                        Page {pg.page}
-                      </span>
-                      {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
-                    </div>
-                    <span className="text-[10px] leading-relaxed hidden lg:block font-medium truncate w-full">
-                      {pg.desc}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Contextual OCR document uploads list for this active page */}
-          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-5 space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 dark:bg-slate-900 pb-3">
-              <UploadCloud className="w-5 h-5 text-emerald-600" />
-              <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">{t('requiredDocs')}</h3>
-            </div>
-            
-            <ul className="space-y-3.5">
-              {[
-                { key: 'aadhaar_front', label: t('uploadAadhaarFront'), path: formData.family.aadhaarFrontPath },
-                { key: 'aadhaar_back', label: t('uploadAadhaarBack'), path: formData.family.aadhaarBackPath },
-                { key: 'ration_card', label: t('uploadRation'), path: formData.family.rationCardPath },
-                { key: 'caste_certificate', label: t('uploadCaste'), path: formData.family.casteCertificatePath || '' },
-                { key: 'passbook', label: t('uploadPassbook'), path: formData.bankDetails.find(b => !!b.passbookPath)?.passbookPath || '' },
-                { key: 'voter_card', label: t('uploadVoter'), path: formData.epicDetails.voterCardPath },
-                { key: 'pan_card', label: t('uploadPan'), path: formData.panDetails.panCardPath }
-              ].map((doc, idx) => {
-                const isUploaded = !!doc.path;
-                return (
-                  <li key={idx} className="flex flex-col gap-2 text-xs border-b border-slate-100 dark:border-slate-900 pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                        {isUploaded ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        ) : (
-                          <div className="w-4 h-4 rounded-full border-2 border-slate-300 dark:border-slate-700 shrink-0" />
-                        )}
-                        <span className={isUploaded ? 'line-through text-slate-400 dark:text-slate-500 text-[11px]' : 'font-medium text-[11px]'}>{doc.label}</span>
-                      </div>
-                      
-                      {isUploaded && !isViewOnly && (
-                        <button
-                          onClick={() => handleDeleteDocument(doc.key)}
-                          className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded transition-all cursor-pointer"
-                          title="Delete document"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    
-                    {/* Thumbnail preview if uploaded */}
-                    {isUploaded && (
-                      <div className="relative group w-20 h-14 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-950 shadow-sm flex items-center justify-center">
-                        {doc.path.toLowerCase().endsWith('.pdf') ? (
-                          <div className="flex flex-col items-center justify-center p-1 text-center">
-                            <FileText className="w-6 h-6 text-red-500" />
-                            <span className="text-[7px] font-bold text-slate-400 truncate max-w-full">PDF File</span>
-                          </div>
-                        ) : (
-                          <img 
-                            src={`${BACKEND_URL}${doc.path}`} 
-                            alt={doc.label} 
-                            className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                          />
-                        )}
-                        <a 
-                          href={`${BACKEND_URL}${doc.path}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[8px] font-extrabold uppercase transition-opacity tracking-wider"
-                        >
-                          View Full
-                        </a>
-                      </div>
-                    )}
-                    
-                    {/* Upload button (always available if not uploaded) */}
-                    {!isUploaded && !isViewOnly && (
-                      <div className="flex items-center gap-2">
-                        <label className="text-[9px] font-extrabold uppercase bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 px-2.5 py-1 rounded-md cursor-pointer flex items-center gap-1 transition-all">
-                          <UploadCloud className="w-3 h-3 text-emerald-600" />
-                          <span>{ocrLoading === doc.key ? 'Scanning...' : 'Choose File'}</span>
-                          <input 
-                            type="file" 
-                            disabled={ocrLoading !== null} 
-                            onChange={(e) => handleFileUploadAndOcr(e, doc.key)} 
-                            className="hidden" 
-                          />
-                        </label>
-
-                        <button
-                          type="button"
-                          onClick={() => setCameraActive(doc.key)}
-                          disabled={ocrLoading !== null}
-                          className="text-[9px] font-extrabold uppercase bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 px-2.5 py-1 rounded-md cursor-pointer flex items-center gap-1 transition-all"
-                        >
-                          <Camera className="w-3 h-3" />
-                          <span>{language === 'en' ? 'Scan' : 'স্ক্যান'}</span>
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </aside>
-
-        {/* Middle Panel: Quick Form Editor */}
-        <section className="lg:col-span-4 space-y-6 lg:sticky lg:top-24 w-full max-h-[calc(100vh-140px)] overflow-y-auto bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-5 flex flex-col">
-          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-900 pb-3 shrink-0">
-            <Sparkles className="w-5 h-5 text-emerald-600 animate-pulse" />
-            <div>
-              <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                {language === 'en' ? 'Quick Form Editor' : 'সহজ তথ্য এডিটর'}
-              </h3>
-              <p className="text-[10px] text-slate-400 font-semibold">
-                {language === 'en' ? `Page ${step} — Fill or toggle fields` : `পৃষ্ঠা ${step} — তথ্য পূরণ করুন`}
+        {/* STAGE 1: DOCUMENT SCAN TRAY */}
+        {wizardStage === 'scan' && (
+          <div className="space-y-6 animate-slide-up">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <span>{t('scanTrayTitle') || 'Document Scanner Tray'}</span>
+                <span className="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-full font-bold border border-emerald-500/20">OCR SCANNER</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                {t('scanTraySubtitle') || 'Scan applicant credentials to trigger intelligent bilingual auto-fill extraction.'}
               </p>
             </div>
-          </div>
 
-          <div className="flex-1 overflow-y-auto space-y-1 pr-1 mt-2">
-            {(() => {
-              const fields = pageOverlays[step] || [];
-              if (fields.length === 0) {
+            {ocrFeedback && (
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-2xl text-xs font-semibold text-emerald-800 dark:text-emerald-400 animate-fade-in flex items-center gap-2 shadow-sm shadow-emerald-500/5">
+                <Sparkles className="w-4.5 h-4.5 text-emerald-600 shrink-0" />
+                <span>{ocrFeedback}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+              {[
+                { key: 'aadhaar_front', label: t('uploadAadhaarFront') || 'Aadhaar Card Front', path: formData.family.aadhaarFrontPath },
+                { key: 'aadhaar_back', label: t('uploadAadhaarBack') || 'Aadhaar Card Back', path: formData.family.aadhaarBackPath },
+                { key: 'ration_card', label: t('uploadRation') || 'Digital Ration Card', path: formData.family.rationCardPath },
+                { key: 'caste_certificate', label: t('uploadCaste') || 'Caste Certificate (Optional)', path: formData.family.casteCertificatePath || '' },
+                { key: 'passbook', label: t('uploadPassbook') || 'Bank Passbook / Cheque', path: formData.bankDetails.find(b => !!b.passbookPath)?.passbookPath || '' },
+                { key: 'voter_card', label: t('uploadVoter') || 'Voter ID (EPIC)', path: formData.epicDetails.voterCardPath },
+                { key: 'pan_card', label: t('uploadPan') || 'PAN Card (Optional)', path: formData.panDetails.panCardPath }
+              ].map((doc) => {
+                const isUploaded = !!doc.path;
                 return (
-                  <div className="py-8 text-center text-xs font-semibold text-slate-400 dark:text-slate-600">
-                    {language === 'en' ? 'No interactive fields on this page.' : 'এই পৃষ্ঠায় কোনো পূরণ করার মতো তথ্য নেই।'}
+                  <div 
+                    key={doc.key} 
+                    className={`bg-white dark:bg-slate-950 border rounded-3xl p-5 shadow-sm transition-all relative overflow-hidden flex flex-col justify-between h-[180px] ${
+                      isUploaded 
+                        ? 'border-emerald-500/35 bg-emerald-500/[0.01]' 
+                        : 'border-slate-200 dark:border-slate-850 hover:border-slate-300 dark:hover:border-slate-800'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">ANNAPURNA credential</span>
+                        {isUploaded && (
+                          <span className="text-[8px] font-extrabold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-900 uppercase flex items-center gap-1 shrink-0 animate-pulse">
+                            <span>✓</span>
+                            <span>{t('ocrSuccess') || 'OCR Scanned'}</span>
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-snug">
+                        {doc.label}
+                      </h4>
+                    </div>
+
+                    <div className="pt-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-900/60 mt-auto">
+                      {!isUploaded ? (
+                        <div className="flex items-center gap-2 w-full">
+                          <label className="flex-1 py-2 bg-slate-100 hover:bg-slate-250 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-800 active:scale-[0.98]">
+                            <UploadCloud className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>{ocrLoading === doc.key ? 'Loading...' : 'Upload'}</span>
+                            <input 
+                              type="file" 
+                              disabled={ocrLoading !== null} 
+                              onChange={(e) => handleFileUploadAndOcr(e, doc.key)} 
+                              className="hidden" 
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() => setCameraActive(doc.key)}
+                            disabled={ocrLoading !== null}
+                            className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 active:scale-[0.98]"
+                          >
+                            <Camera className="w-3.5 h-3.5 shrink-0" />
+                            <span>Scan</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">File attached</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDocument(doc.key)}
+                            className="p-2 border border-red-200 dark:border-red-950/20 text-red-500 hover:bg-red-55 dark:hover:bg-red-950/20 rounded-xl transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
-              }
+              })}
+            </div>
 
-              // Group fields into logical sections
-              const getGroupKey = (id: string): string => {
-                if (id.startsWith('family.hofGender')) return 'hof_identity';
-                if (id.startsWith('family.hofCategory')) return 'hof_category';
-                if (id.startsWith('family.hasRation') || id === 'family.rationType_SPHH') return 'ration';
-                if (id.startsWith('family.hof') || id === 'family.householdId' || id === 'family.literateCount' || id === 'family.illiterateCount') return 'hof_identity';
-                if (id.startsWith('members.')) { const idx = id.split('.')[1]; return `member_${idx}`; }
-                if (id.startsWith('bankDetails.')) { const idx = id.split('.')[1]; return `bank_${idx}`; }
-                if (id.startsWith('education.')) { const idx = id.split('.')[1]; return `edu_${idx}`; }
-                if (id.startsWith('children.')) { const idx = id.split('.')[1]; return `child_${idx}`; }
-                if (id.startsWith('epicDetails')) return 'epic';
-                if (id.startsWith('panDetails')) return 'pan';
-                if (id.match(/^assets\.(hof|m\d)Emp/)) { const who = id.match(/^assets\.(hof|m\d)Emp/)?.[1]; return `emp_${who}`; }
-                if (id.startsWith('assets.healthInsurance') || id === 'assets.premium' || id === 'assets.sumAssured') return 'insurance';
-                if (id.startsWith('assets.incomeTax')) return 'income_tax';
-                if (id.startsWith('assets.vehicle') || id.startsWith('assets.pucca') || id.startsWith('assets.land')) return 'assets_property';
-                if (id === 'assets.familySize') return 'hof_identity';
-                if (id === 'assets.annualIncome') return 'income';
-                if (id.startsWith('governmentSchemes')) return 'schemes';
-                return 'other';
-              };
+            {/* Stage Proceed button */}
+            <div className="flex justify-end pt-4 mt-4 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await saveDraftToServer(false);
+                  if (ok) setWizardStage('form');
+                }}
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <span>{language === 'en' ? 'Next: Fill Smart Form' : 'পরবর্তী ধাপ: স্মার্ট ফর্ম পূরণ'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
-              const getGroupLabel = (key: string): string => {
-                const isEn = language === 'en';
-                const labels: Record<string, {en: string, bn: string}> = {
-                  hof_identity: { en: '👤 HOF — Head of Family', bn: '👤 প্রধান — পরিবারের প্রধান' },
-                  hof_category: { en: '🏷️ Category / Caste', bn: '🏷️ বিভাগ / জাতি' },
-                  ration: { en: '🍚 Ration Card', bn: '🍚 রেশন কার্ড' },
-                  member_0: { en: '👨‍👩‍👦 Member 1', bn: '👨‍👩‍👦 সদস্য ১' },
-                  member_1: { en: '👨‍👩‍👦 Member 2', bn: '👨‍👩‍👦 সদস্য ২' },
-                  member_2: { en: '👨‍👩‍👦 Member 3', bn: '👨‍👩‍👦 সদস্য ৩' },
-                  member_3: { en: '👨‍👩‍👦 Member 4', bn: '👨‍👩‍👦 সদস্য ৪' },
-                  member_4: { en: '👨‍👩‍👦 Member 5', bn: '👨‍👩‍👦 সদস্য ৫' },
-                  bank_0: { en: '🏦 HOF Bank Account', bn: '🏦 প্রধানের ব্যাংক' },
-                  bank_1: { en: '🏦 Member 1 Bank', bn: '🏦 সদস্য ১-এর ব্যাংক' },
-                  bank_2: { en: '🏦 Member 2 Bank', bn: '🏦 সদস্য ২-এর ব্যাংক' },
-                  bank_3: { en: '🏦 Member 3 Bank', bn: '🏦 সদস্য ৩-এর ব্যাংক' },
-                  bank_4: { en: '🏦 Member 4 Bank', bn: '🏦 সদস্য ৪-এর ব্যাংক' },
-                  bank_5: { en: '🏦 Member 5 Bank', bn: '🏦 সদস্য ৫-এর ব্যাংক' },
-                  epic: { en: '🗳️ Voter Card (EPIC)', bn: '🗳️ ভোটার কার্ড' },
-                  pan: { en: '💳 PAN Card', bn: '💳 প্যান কার্ড' },
-                  income_tax: { en: '🧾 Income Tax', bn: '🧾 আয়কর' },
-                  assets_property: { en: '🏠 Property & Vehicles', bn: '🏠 সম্পদ ও যানবাহন' },
-                  insurance: { en: '🛡️ Health Insurance', bn: '🛡️ স্বাস্থ্য বীমা' },
-                  income: { en: '💰 Annual Income', bn: '💰 বার্ষিক আয়' },
-                  emp_hof: { en: '💼 HOF Employment', bn: '💼 প্রধানের জীবিকা' },
-                  emp_m1: { en: '💼 Member 1 Employment', bn: '💼 সদস্য ১-এর জীবিকা' },
-                  emp_m2: { en: '💼 Member 2 Employment', bn: '💼 সদস্য ২-এর জীবিকা' },
-                  emp_m3: { en: '💼 Member 3 Employment', bn: '💼 সদস্য ৩-এর জীবিকা' },
-                  emp_m4: { en: '💼 Member 4 Employment', bn: '💼 সদস্য ৪-এর জীবিকা' },
-                  emp_m5: { en: '💼 Member 5 Employment', bn: '💼 সদস্য ৫-এর জীবিকা' },
-                  edu_0: { en: '📚 HOF Education', bn: '📚 প্রধানের শিক্ষা' },
-                  edu_1: { en: '📚 Member 1 Education', bn: '📚 সদস্য ১-এর শিক্ষা' },
-                  edu_2: { en: '📚 Member 2 Education', bn: '📚 সদস্য ২-এর শিক্ষা' },
-                  edu_3: { en: '📚 Member 3 Education', bn: '📚 সদস্য ৩-এর শিক্ষা' },
-                  edu_4: { en: '📚 Member 4 Education', bn: '📚 সদস্য ৪-এর শিক্ষা' },
-                  edu_5: { en: '📚 Member 5 Education', bn: '📚 সদস্য ৫-এর শিক্ষা' },
-                  child_0: { en: '🧒 Child 1', bn: '🧒 শিশু ১' },
-                  child_1: { en: '🧒 Child 2', bn: '🧒 শিশু ২' },
-                  schemes: { en: '📋 Terms & Agreement', bn: '📋 শর্তাবলী ও সম্মতি' },
-                  other: { en: '📝 Other Fields', bn: '📝 অন্যান্য তথ্য' }
-                };
-                return labels[key] ? (isEn ? labels[key].en : labels[key].bn) : key;
-              };
+        {/* STAGE 2: SIMPLE SMART BILINGUAL FORM */}
+        {wizardStage === 'form' && (
+          <div className="space-y-6 animate-slide-up max-w-[1000px] mx-auto w-full">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-4 flex justify-between items-center gap-4 flex-wrap">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                  <span>{t('fillForm') || 'Fill Smart Form'}</span>
+                  <span className="text-xs px-2 py-0.5 bg-sky-500/10 text-sky-600 rounded-full font-bold border border-sky-500/20">SMART UI</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  {language === 'en' ? 'Review values filled by OCR and complete details' : 'ওসিআর (OCR) দ্বারা সংগৃহীত তথ্য যাচাই করুন এবং বাকি তথ্য পূরণ করুন'}
+                </p>
+              </div>
+              
+              {/* Form categories tabs */}
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-sm shrink-0">
+                {[
+                  { id: 'hof', label: t('hofSection') || '👤 HOF Profile', icon: '👤' },
+                  { id: 'members', label: t('familySection') || '👨‍👩‍👦 Members', icon: '👨‍👩‍👦' },
+                  { id: 'bank', label: t('bankAssetSection') || '🏦 Bank & Assets', icon: '🏦' },
+                  { id: 'schemes', label: t('schemesChildrenSection') || '📋 Schemes & Children', icon: '📋' }
+                ].map((tb) => (
+                  <button
+                    key={tb.id}
+                    type="button"
+                    onClick={() => setFormTab(tb.id as any)}
+                    className={`px-3 py-2 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer ${
+                      formTab === tb.id
+                        ? 'bg-sky-600 text-white shadow-md shadow-sky-500/15'
+                        : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'
+                    }`}
+                  >
+                    <span className="mr-1">{tb.icon}</span>
+                    <span className="hidden md:inline">{tb.label.split(' ')[0]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-              // Build ordered groups
-              const groupOrder: string[] = [];
-              const groupMap: Record<string, typeof fields> = {};
-              fields.forEach(field => {
-                const gk = getGroupKey(field.id);
-                if (!groupMap[gk]) {
-                  groupMap[gk] = [];
-                  groupOrder.push(gk);
-                }
-                groupMap[gk].push(field);
-              });
+            {/* TAB CONTENT: HEAD OF FAMILY */}
+            {formTab === 'hof' && (
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+                <div className="border-l-4 border-sky-500 pl-3">
+                  <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                    {language === 'en' ? 'Head of Family Identity Profile' : 'পরিবারের প্রধানের পরিচয়পত্র'}
+                  </h3>
+                </div>
 
-              return groupOrder.map(gk => (
-                <div key={gk} className="mb-2">
-                  <div className="sticky top-0 z-10 bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-950/20 dark:to-slate-950 border border-emerald-100 dark:border-emerald-900/30 rounded-lg px-3 py-2 mb-2">
-                    <span className="text-[11px] font-extrabold text-emerald-800 dark:text-emerald-400 uppercase tracking-wide">
-                      {getGroupLabel(gk)}
-                    </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Name field */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('fullName') || 'Full Name'} / নাম
+                    </label>
+                    <input
+                      type="text"
+                      value={getFieldValue('family.hofName')}
+                      onChange={(e) => setFieldValue('family.hofName', e.target.value)}
+                      className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                      placeholder={t('fullNamePlaceholder') || 'Enter full name'}
+                    />
+                    {!!formData.family.aadhaarFrontPath && (
+                      <span className="absolute right-4 top-4 text-[8px] font-extrabold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-900">
+                        {t('autofilledFromAadhaar') || 'Autofilled from Aadhaar'}
+                      </span>
+                    )}
                   </div>
-                  <div className="space-y-2 pl-1">
-                    {groupMap[gk].map(field => {
-                      const val = getFieldValue(field.id);
-                      const label = getFieldLabel(field.id);
-                      const isCheckbox = field.type === 'checkbox';
 
-                      if (isCheckbox) {
-                        const isChecked = getFieldChecked(field.id);
-                        return (
-                          <div key={field.id} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-900 border border-slate-100 dark:border-slate-900 rounded-xl transition-all">
-                            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 pr-2 leading-relaxed">
-                              {label}
+                  {/* Aadhaar field */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('aadhaarNumber') || 'Aadhaar Number'} / আধার নম্বর
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={12}
+                      value={getFieldValue('family.hofAadhaar')}
+                      onChange={(e) => setFieldValue('family.hofAadhaar', e.target.value.replace(/\D/g, ''))}
+                      className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                      placeholder={t('aadhaarPlaceholder') || '12-digit number'}
+                    />
+                    {!!formData.family.aadhaarFrontPath && (
+                      <span className="absolute right-4 top-4 text-[8px] font-extrabold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-900">
+                        {t('autofilledFromAadhaar') || 'Autofilled from Aadhaar'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* DOB field */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('dob') || 'Date of Birth'} / জন্ম তারিখ
+                    </label>
+                    <input
+                      type="date"
+                      value={getFieldValue('family.hofDob')}
+                      onChange={(e) => setFieldValue('family.hofDob', e.target.value)}
+                      className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                    />
+                    {!!formData.family.aadhaarFrontPath && (
+                      <span className="absolute right-4 top-4 text-[8px] font-extrabold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-900">
+                        {t('autofilledFromAadhaar') || 'Autofilled from Aadhaar'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Gender field */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('gender') || 'Gender'} / লিঙ্গ
+                    </label>
+                    <select
+                      value={getFieldValue('family.hofGender')}
+                      onChange={(e) => setFieldValue('family.hofGender', e.target.value)}
+                      className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 text-xs"
+                    >
+                      <option value="">-- Select Gender --</option>
+                      <option value="Male">{t('male') || 'Male'}</option>
+                      <option value="Female">{t('female') || 'Female'}</option>
+                      <option value="Other">{t('other') || 'Other'}</option>
+                    </select>
+                  </div>
+
+                  {/* Mobile field */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('mobileNumber') || 'Mobile Number'} / মোবাইল নম্বর
+                    </label>
+                    <input
+                      type="tel"
+                      maxLength={10}
+                      value={getFieldValue('family.hofMobile')}
+                      onChange={(e) => setFieldValue('family.hofMobile', e.target.value.replace(/\D/g, ''))}
+                      className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                      placeholder={t('mobilePlaceholder') || '10-digit number'}
+                    />
+                  </div>
+
+                  {/* Category/Caste field */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('category') || 'Category'} / ক্যাটাগরি
+                    </label>
+                    <select
+                      value={getFieldValue('family.hofCategory')}
+                      onChange={(e) => setFieldValue('family.hofCategory', e.target.value)}
+                      className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 text-xs"
+                    >
+                      <option value="">-- Select Category --</option>
+                      <option value="UR">{t('general') || 'General'}</option>
+                      <option value="SC">{t('sc') || 'SC'}</option>
+                      <option value="ST">{t('st') || 'ST'}</option>
+                      <option value="OBC">OBC</option>
+                    </select>
+                    {!!formData.family.casteCertificatePath && (
+                      <span className="absolute right-4 top-4 text-[8px] font-extrabold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-900">
+                        Caste Scanned
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Address field (Full-width spans) */}
+                  <div className="md:col-span-2 space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('address') || 'Address'} / ঠিকানা
+                    </label>
+                    <textarea
+                      value={getFieldValue('family.hofAddress')}
+                      onChange={(e) => setFieldValue('family.hofAddress', e.target.value)}
+                      className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs resize-none h-12"
+                      placeholder={t('addressPlaceholder') || 'Enter full address'}
+                    />
+                    {!!formData.family.aadhaarBackPath && (
+                      <span className="absolute right-4 top-4 text-[8px] font-extrabold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-900">
+                        Auto-Address
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Ration Card details */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('householdId') || 'Household ID'} / রেশন কার্ড আইডি
+                    </label>
+                    <input
+                      type="text"
+                      value={getFieldValue('family.householdId')}
+                      onChange={(e) => setFieldValue('family.householdId', e.target.value)}
+                      className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                      placeholder={t('householdPlaceholder') || 'Ration card number'}
+                    />
+                    {!!formData.family.rationCardPath && (
+                      <span className="absolute right-4 top-4 text-[8px] font-extrabold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-900">
+                        {t('autofilledFromRation') || 'Autofilled from Ration Card'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Navigation Row */}
+                <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setWizardStage('scan')}
+                    className="px-5 py-2 border border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer active:scale-95"
+                  >
+                    <span>{t('previous') || 'Previous'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormTab('members')}
+                    className="px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <span>Next Tab</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: FAMILY MEMBERS */}
+            {formTab === 'members' && (
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-4">
+                  <div className="border-l-4 border-sky-500 pl-3">
+                    <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                      {t('familySection') || 'Family Members'} / সদস্যদের তালিকা
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => {
+                        const next = JSON.parse(JSON.stringify(prev));
+                        next.members.push({ name: '', dob: '', gender: '', relation: '', aadhaar: '' });
+                        return next;
+                      });
+                    }}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{t('addMember') || 'Add Member'}</span>
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {formData.members.filter(m => !!m).length === 0 ? (
+                    <div className="py-12 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl text-center text-xs font-semibold text-slate-400">
+                      {t('noMembersYet') || 'No family members added yet.'}
+                    </div>
+                  ) : (
+                    formData.members.map((member, index) => {
+                      if (!member) return null;
+                      return (
+                        <div key={index} className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-850 rounded-3xl p-5 space-y-4 relative">
+                          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-2">
+                            <span className="text-[10px] font-extrabold bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-400 px-2 py-0.5 rounded-full border border-sky-200 dark:border-sky-900 uppercase">
+                              Member {index + 1} / সদস্য {index + 1}
                             </span>
                             <button
                               type="button"
-                              onClick={() => handleCheckboxToggle(field.id)}
-                              className={`w-10 h-5.5 flex items-center rounded-full p-0.5 cursor-pointer transition-all duration-200 shrink-0 ${
-                                isChecked ? 'bg-emerald-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
-                              }`}
+                              onClick={() => {
+                                setFormData(prev => {
+                                  const next = JSON.parse(JSON.stringify(prev));
+                                  next.members.splice(index, 1);
+                                  return next;
+                                });
+                              }}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 p-1.5 rounded-lg transition-colors cursor-pointer"
                             >
-                              <span className="bg-white w-4 h-4 rounded-full shadow-md transition-transform duration-200" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
-                        );
-                      }
 
-                      if (field.type === 'select') {
-                        return (
-                          <div key={field.id} className="space-y-1 p-1">
-                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{label}</label>
-                            <select
-                              disabled={isViewOnly}
-                              value={val}
-                              onChange={(e) => setFieldValue(field.id, e.target.value)}
-                              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-500 transition-colors"
-                            >
-                              <option value="">-- Select --</option>
-                              {field.options?.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      }
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Member Name */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl relative">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Name / নাম</label>
+                              <input
+                                type="text"
+                                value={member.name || ''}
+                                onChange={(e) => {
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.members[index].name = e.target.value;
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                                placeholder="Enter name"
+                              />
+                            </div>
 
-                      return (
-                        <div key={field.id} className="space-y-1 p-1">
-                          <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{label}</label>
-                            {field.docUploadType && (
-                              <span className="text-[8px] font-extrabold uppercase text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded">OCR</span>
-                            )}
+                            {/* Member Aadhaar */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl relative">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Aadhaar / আধার</label>
+                              <input
+                                type="text"
+                                maxLength={12}
+                                value={member.aadhaar || ''}
+                                onChange={(e) => {
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.members[index].aadhaar = e.target.value.replace(/\D/g, '');
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                                placeholder="12-digit number"
+                              />
+                            </div>
+
+                            {/* Member DOB */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl relative">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">DOB / জন্ম তারিখ</label>
+                              <input
+                                type="date"
+                                value={member.dob || ''}
+                                onChange={(e) => {
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.members[index].dob = e.target.value;
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                              />
+                            </div>
+
+                            {/* Member Relation */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl relative">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Relation / সম্পর্ক</label>
+                              <select
+                                value={member.relation || ''}
+                                onChange={(e) => {
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.members[index].relation = e.target.value;
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                              >
+                                <option value="">-- Select relation --</option>
+                                <option value="Wife">{t('wife') || 'Wife'}</option>
+                                <option value="Husband">{t('husband') || 'Husband'}</option>
+                                <option value="Son">{t('son') || 'Son'}</option>
+                                <option value="Daughter">{t('daughter') || 'Daughter'}</option>
+                                <option value="Father">{t('father') || 'Father'}</option>
+                                <option value="Mother">{t('mother') || 'Mother'}</option>
+                              </select>
+                            </div>
                           </div>
-                          <input
-                            type={field.type}
-                            disabled={isViewOnly}
-                            value={val}
-                            onChange={(e) => setFieldValue(field.id, e.target.value)}
-                            placeholder={field.placeholder || label}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-500 transition-colors"
-                          />
                         </div>
                       );
-                    })}
+                    })
+                  )}
+                </div>
+
+                {/* Navigation Row */}
+                <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setFormTab('hof')}
+                    className="px-5 py-2 border border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer active:scale-95"
+                  >
+                    <span>Previous Tab</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormTab('bank')}
+                    className="px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <span>Next Tab</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: BANK & ASSETS */}
+            {formTab === 'bank' && (
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+                <div className="border-l-4 border-sky-500 pl-3">
+                  <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                    {t('bankDetailsTitle') || 'Bank Details'} / ব্যাংক অ্যাকাউন্টের বিবরণ
+                  </h3>
+                </div>
+
+                {/* Render Bank account fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Bank Name */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('bankName') || 'Bank Name'} / ব্যাংকের নাম
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails[0]?.bankName || ''}
+                      onChange={(e) => {
+                        setFormData(prev => {
+                          const next = JSON.parse(JSON.stringify(prev));
+                          if (!next.bankDetails[0]) next.bankDetails[0] = { memberAadhaar: '', bankName: '', accountNumber: '', ifsc: '' };
+                          next.bankDetails[0].bankName = e.target.value;
+                          return next;
+                        });
+                      }}
+                      className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                      placeholder={t('bankPlaceholder') || 'E.g., State Bank of India'}
+                    />
+                  </div>
+
+                  {/* Account Number */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('accountNumber') || 'Account Number'} / অ্যাকাউন্ট নম্বর
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails[0]?.accountNumber || ''}
+                      onChange={(e) => {
+                        setFormData(prev => {
+                          const next = JSON.parse(JSON.stringify(prev));
+                          if (!next.bankDetails[0]) next.bankDetails[0] = { memberAadhaar: '', bankName: '', accountNumber: '', ifsc: '' };
+                          next.bankDetails[0].accountNumber = e.target.value;
+                          return next;
+                        });
+                      }}
+                      className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                      placeholder={t('accountPlaceholder') || 'Enter account number'}
+                    />
+                  </div>
+
+                  {/* IFSC */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {t('ifsc') || 'IFSC Code'} / আইএফএসসি কোড
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails[0]?.ifsc || ''}
+                      onChange={(e) => {
+                        setFormData(prev => {
+                          const next = JSON.parse(JSON.stringify(prev));
+                          if (!next.bankDetails[0]) next.bankDetails[0] = { memberAadhaar: '', bankName: '', accountNumber: '', ifsc: '' };
+                          next.bankDetails[0].ifsc = e.target.value;
+                          return next;
+                        });
+                      }}
+                      className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                      placeholder={t('ifscPlaceholder') || '11-character code'}
+                    />
                   </div>
                 </div>
-              ));
-            })()}
-          </div>
-        </section>
 
-        {/* Right Side: Form Preview Panel */}
-        <section className="lg:col-span-5 space-y-4 w-full">
+                <div className="border-l-4 border-sky-500 pl-3 pt-2">
+                  <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                    {language === 'en' ? 'Property & Assets Details' : 'সম্পত্তি ও সম্পদের বিবরণ'}
+                  </h3>
+                </div>
 
-          {/* Edit / Preview Mode Tabs */}
-          <div className="flex items-center gap-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-1.5">
-            <button
-              onClick={() => setPreviewMode('edit')}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
-                previewMode === 'edit'
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
-                  : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>{language === 'en' ? 'Edit on Template' : 'টেমপ্লেটে এডিট'}</span>
-            </button>
-            <button
-              onClick={async () => {
-                setPreviewMode('preview');
-                if (!appId) return;
-                setPreviewLoading(true);
-                try {
-                  await saveDraftToServer(false);
-                  const res = await axios.get(`${BACKEND_URL}/api/applications/${appId}/pdf`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                    responseType: 'blob'
-                  });
-                  const blob = new Blob([res.data], { type: 'application/pdf' });
-                  const url = URL.createObjectURL(blob);
-                  setPreviewUrl(url);
-                } catch (err) {
-                  console.error(err);
-                } finally {
-                  setPreviewLoading(false);
-                }
-              }}
-              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
-                previewMode === 'preview'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                  : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'
-              }`}
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>{language === 'en' ? 'Preview Filled Form' : 'পূরণ করা ফর্ম দেখুন'}</span>
-            </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Pucca rooms toggle */}
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 pr-4 leading-normal">
+                      {t('puccaRooms') || 'More than 3 Pucca Rooms?'} / ৩-এর বেশি পাকা ঘর?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFieldValue('assets.puccaRooms', !formData.assets.puccaRooms)}
+                      className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-all duration-200 shrink-0 ${
+                        formData.assets.puccaRooms ? 'bg-sky-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                      }`}
+                    >
+                      <span className="bg-white w-5 h-5 rounded-full shadow-md" />
+                    </button>
+                  </div>
+
+                  {/* Own vehicle toggle */}
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 pr-4 leading-normal">
+                      {t('vehicleOwnership') || 'Own 2/3/4-Wheeler Vehicle?'} / ২/৩/৪ চাকার গাড়ি?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFieldValue('assets.vehicleOwnership', !formData.assets.vehicleOwnership)}
+                      className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-all duration-200 shrink-0 ${
+                        formData.assets.vehicleOwnership ? 'bg-sky-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                      }`}
+                    >
+                      <span className="bg-white w-5 h-5 rounded-full shadow-md" />
+                    </button>
+                  </div>
+
+                  {/* Vehicle details if owned */}
+                  {formData.assets.vehicleOwnership && (
+                    <>
+                      <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                          Vehicle Number / গাড়ির নম্বর
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.assets.vehicleNumber || ''}
+                          onChange={(e) => setFieldValue('assets.vehicleNumber', e.target.value)}
+                          className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                          placeholder="Registration number"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                          Vehicle Model / গাড়ির মডেল
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.assets.vehicleModel || ''}
+                          onChange={(e) => setFieldValue('assets.vehicleModel', e.target.value)}
+                          className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                          placeholder="E.g., Honda Shine"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Navigation Row */}
+                <div className="flex justify-between items-center pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setFormTab('members')}
+                    className="px-5 py-2 border border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer active:scale-95"
+                  >
+                    <span>Previous Tab</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormTab('schemes')}
+                    className="px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <span>Next Tab</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: SCHEMES & CHILDREN */}
+            {formTab === 'schemes' && (
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+                <div className="border-l-4 border-sky-500 pl-3">
+                  <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                    {language === 'en' ? 'Currently Received Welfare Schemes' : 'বর্তমানে প্রাপ্ত সরকারি সুবিধাসমূহ'}
+                  </h3>
+                </div>
+
+                {/* Schemes list checkboxes */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { key: 'lakshmirBhandar', label: t('lakshmirBhandar') || "Lakshmir Bhandar" },
+                    { key: 'pmKisan', label: t('pmKisan') || "PM Kisan" },
+                    { key: 'oldAgePension', label: t('oldAgePension') || "Old Age Pension" },
+                    { key: 'kanyashree', label: t('kanyashree') || "Kanyashree" },
+                    { key: 'rupashree', label: t('rupashree') || "Rupashree" },
+                    { key: 'awasYojana', label: t('awasYojana') || "Awas Yojana" }
+                  ].map((sch) => {
+                    const schemesList = formData.governmentSchemes.schemesList || [];
+                    const isChecked = schemesList.includes(sch.key);
+                    return (
+                      <div
+                        key={sch.key}
+                        onClick={() => {
+                          setFormData(prev => {
+                            const next = JSON.parse(JSON.stringify(prev));
+                            const curList = next.governmentSchemes.schemesList || [];
+                            if (curList.includes(sch.key)) {
+                              next.governmentSchemes.schemesList = curList.filter((k: string) => k !== sch.key);
+                            } else {
+                              next.governmentSchemes.schemesList = [...curList, sch.key];
+                            }
+                            return next;
+                          });
+                        }}
+                        className={`p-3.5 border rounded-2xl cursor-pointer transition-all flex items-center gap-3 active:scale-[0.99] ${
+                          isChecked
+                            ? 'border-sky-500 bg-sky-50/20 dark:bg-sky-950/10'
+                            : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-colors shrink-0 ${
+                          isChecked ? 'bg-sky-600 border-sky-600 text-white' : 'border-slate-300 dark:border-slate-700 bg-transparent'
+                        }`}>
+                          {isChecked && <Check className="w-3.5 h-3.5" />}
+                        </div>
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-normal">
+                          {sch.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="border-l-4 border-sky-500 pl-3 pt-2">
+                  <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                    {language === 'en' ? 'Children Details' : 'শিশুদের বিবরণ'}
+                  </h3>
+                </div>
+
+                {/* Children dynamic fields */}
+                <div className="space-y-4">
+                  {formData.children.filter(c => !!c).length === 0 ? (
+                    <div className="py-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl text-center text-xs font-semibold text-slate-400">
+                      No children details added.
+                    </div>
+                  ) : (
+                    formData.children.map((child, index) => {
+                      if (!child) return null;
+                      return (
+                        <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 rounded-2xl">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase">Child Name / নাম</label>
+                            <input
+                              type="text"
+                              value={child.name || ''}
+                              onChange={(e) => {
+                                setFormData(prev => {
+                                  const next = JSON.parse(JSON.stringify(prev));
+                                  next.children[index].name = e.target.value;
+                                  return next;
+                                });
+                              }}
+                              className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase">Class / শ্রেণী</label>
+                            <input
+                              type="text"
+                              value={child.className || ''}
+                              onChange={(e) => {
+                                setFormData(prev => {
+                                  const next = JSON.parse(JSON.stringify(prev));
+                                  next.children[index].className = e.target.value;
+                                  return next;
+                                });
+                              }}
+                              className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase">School / বিদ্যালয়</label>
+                            <input
+                              type="text"
+                              value={child.schoolName || ''}
+                              onChange={(e) => {
+                                setFormData(prev => {
+                                  const next = JSON.parse(JSON.stringify(prev));
+                                  next.children[index].schoolName = e.target.value;
+                                  return next;
+                                });
+                              }}
+                              className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Tab Proceed buttons */}
+                <div className="flex justify-between items-center pt-4 mt-4 border-t border-slate-200 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setFormTab('bank')}
+                    className="px-5 py-2 border border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer active:scale-95"
+                  >
+                    <span>Previous Tab</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const ok = await saveDraftToServer(false);
+                      if (ok) setWizardStage('preview');
+                    }}
+                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-indigo-500/10 flex items-center gap-2 cursor-pointer active:scale-95 animate-pulse"
+                  >
+                    <span>{language === 'en' ? 'Proceed to Preview' : 'পরবর্তী ধাপ: রিভিউ করুন'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-          
-          {ocrFeedback && (
-            <div className="p-3.5 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-400 animate-fade-in flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{ocrFeedback}</span>
+        )}
+
+        {/* STAGE 3: INTERACTIVE BILINGUAL IFRAME PREVIEW */}
+        {wizardStage === 'preview' && (
+          <div className="space-y-6 animate-slide-up max-w-[900px] mx-auto w-full">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-4 text-center">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2">
+                <Eye className="w-5 h-5 text-sky-600 animate-pulse" />
+                <span>{language === 'en' ? 'Review Application Form' : 'আবেদনপত্র রিভিউ করুন'}</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                {language === 'en' ? 'Please review the generated form draft before paying the processing fee.' : 'প্রসেসিং ফি দেওয়ার আগে তৈরি হওয়া ফর্মের খসড়াটি অনুগ্রহ করে দেখে নিন।'}
+              </p>
             </div>
-          )}
 
-          {/* Preview Mode: Compiled PDF */}
-          {previewMode === 'preview' && (
-            <div className="relative w-full mx-auto rounded-xl overflow-hidden border border-blue-200 dark:border-blue-900 shadow-md" style={{ maxWidth: '780px', minHeight: '600px' }}>
+            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 shadow-md space-y-4">
               {previewLoading ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 dark:bg-slate-950/90 z-10">
-                  <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-3" />
-                  <span className="text-xs font-bold text-slate-500">
-                    {language === 'en' ? 'Generating filled PDF preview...' : 'পূরণ করা PDF তৈরি হচ্ছে...'}
-                  </span>
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <div className="w-10 h-10 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mb-4" />
+                  <p className="text-xs font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider animate-pulse">
+                    {language === 'en' ? 'Compiling PDF with checkbox checkmarks...' : 'চেকমার্কসহ পিডিএফ তৈরি হচ্ছে...'}
+                  </p>
                 </div>
               ) : previewUrl ? (
-                <iframe
-                  src={previewUrl}
-                  className="w-full border-0 bg-white"
-                  style={{ height: '85vh', minHeight: '600px' }}
-                  title="Filled Form Preview"
-                />
+                <div className="relative w-full aspect-[3/4] max-h-[700px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-850 bg-slate-50">
+                  <iframe
+                    src={previewUrl}
+                    className="w-full h-full border-0 bg-white"
+                    title="Form Preview"
+                  />
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                   <Eye className="w-10 h-10 text-slate-300 mb-3" />
                   <p className="text-xs font-semibold text-slate-400">
-                    {language === 'en' ? 'Click the Preview tab above to generate a filled form preview.' : 'উপরের Preview ট্যাবে ক্লিক করুন।'}
+                    {language === 'en' ? 'No preview generated. Click below to load.' : 'কোনো প্রিভিউ লোড করা নেই। নিচে ক্লিক করে লোড করুন।'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!appId) return;
+                      setPreviewLoading(true);
+                      try {
+                        const res = await axios.get(`${BACKEND_URL}/api/applications/${appId}/pdf`, {
+                          headers: { Authorization: `Bearer ${token}` },
+                          responseType: 'blob'
+                        });
+                        const blob = new Blob([res.data], { type: 'application/pdf' });
+                        const url = URL.createObjectURL(blob);
+                        setPreviewUrl(url);
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        setPreviewLoading(false);
+                      }
+                    }}
+                    className="mt-4 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md cursor-pointer active:scale-95"
+                  >
+                    Compile Preview
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Self Declaration check box */}
+            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  defaultChecked={true}
+                  className="mt-0.5 w-4.5 h-4.5 rounded border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-emerald-500 shrink-0 cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {t('confirmDeclaration') || 'I declare that the information provided is correct / আমি ঘোষণা করছি যে উপরে দেওয়া সমস্ত তথ্য সত্য ও নির্ভুল।'}
+                </span>
+              </label>
+            </div>
+
+            {/* Stage Proceed button */}
+            <div className="flex justify-between items-center pt-4 mt-4 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setWizardStage('form');
+                  setFormTab('schemes');
+                }}
+                className="px-5 py-2 border border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer active:scale-95"
+              >
+                <span>{t('previous') || 'Previous'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await saveDraftToServer(false);
+                  if (ok) setWizardStage('payment');
+                }}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-indigo-500/10 flex items-center gap-2 cursor-pointer active:scale-95 animate-pulse"
+              >
+                <span>{language === 'en' ? 'Proceed to UPI Payment' : 'পরবর্তী ধাপ: পেমেন্ট করুন'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STAGE 4: INTERACTIVE UPI PAYMENT GATEWAY */}
+        {wizardStage === 'payment' && (
+          <div className="space-y-6 animate-slide-up max-w-[500px] mx-auto w-full">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-4 text-center">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2">
+                <Wallet className="w-5 h-5 text-indigo-600" />
+                <span>{t('paymentTitle') || 'UPI Secure Checkout'}</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                {t('paymentSubtitle') || 'Scan or trigger pay intent link to complete processing fee transaction.'}
+              </p>
+            </div>
+
+            {/* Visual Checkout Box */}
+            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden transition-all duration-300 text-center space-y-6">
+              
+              {/* Payment glow backgrounds */}
+              <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl pointer-events-none"></div>
+
+              {paymentStatus === 'pending' && (
+                <div className="space-y-6 relative z-10">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">ANNAPURNA PROCESSING FEE</span>
+                    <div className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                      {t('payAmount') || '₹ 10.00'}
+                    </div>
+                  </div>
+
+                  {/* QR Code generator */}
+                  <div className="flex flex-col items-center justify-center space-y-2 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-3xl border border-slate-100 dark:border-slate-850 w-full max-w-[280px] mx-auto shadow-inner">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=upi://pay?pa=imsusanta@okaxis%26pn=AnnapurnaYojana%26am=10%26cu=INR`}
+                      alt="UPI QR Code"
+                      className="w-40 h-40 border border-slate-200 rounded-xl bg-white p-1"
+                    />
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1 mt-1">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+                      <span>{t('scanQrCode') || 'Scan this QR to Pay'}</span>
+                    </span>
+                  </div>
+
+                  {/* Wallet Logos */}
+                  <div className="flex justify-center items-center gap-4 bg-slate-50 dark:bg-slate-900/40 py-2.5 px-4 rounded-2xl max-w-[320px] mx-auto border border-slate-100 dark:border-slate-855">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Supported UPI:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-slate-600 dark:text-slate-400 tracking-tight">GPay</span>
+                      <span className="text-slate-300 dark:text-slate-700">|</span>
+                      <span className="text-xs font-black text-slate-600 dark:text-slate-400 tracking-tight">PhonePe</span>
+                      <span className="text-slate-300 dark:text-slate-700">|</span>
+                      <span className="text-xs font-black text-slate-600 dark:text-slate-400 tracking-tight">Paytm</span>
+                      <span className="text-slate-300 dark:text-slate-700">|</span>
+                      <span className="text-xs font-black text-slate-600 dark:text-slate-400 tracking-tight">BHIM</span>
+                    </div>
+                  </div>
+
+                  {/* Direct Mobile Launch intent trigger */}
+                  <div className="space-y-3">
+                    <a
+                      href="upi://pay?pa=imsusanta@okaxis&pn=AnnapurnaYojana&am=10&cu=INR"
+                      className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs tracking-wider uppercase rounded-2xl transition-all shadow-lg shadow-indigo-500/20 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Wallet className="w-4.5 h-4.5" />
+                      <span>{t('payAppBtn') || 'Pay via Mobile Wallet Apps'}</span>
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setPaymentStatus('verifying');
+                        setTimeout(async () => {
+                          try {
+                            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                            const osc1 = ctx.createOscillator();
+                            const osc2 = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc1.connect(gain);
+                            osc2.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc1.frequency.setValueAtTime(523.25, ctx.currentTime);
+                            osc2.frequency.setValueAtTime(659.25, ctx.currentTime);
+                            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                            osc1.start();
+                            osc2.start();
+                            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                            osc1.stop(ctx.currentTime + 0.4);
+                            osc2.stop(ctx.currentTime + 0.4);
+                          } catch (e) {}
+
+                          try {
+                            await axios.put(
+                              `${BACKEND_URL}/api/applications/${appId}`,
+                              {
+                                ...formData,
+                                status: 'submitted',
+                                current_step: 11
+                              },
+                              { headers: { Authorization: `Bearer ${token}` } }
+                            );
+                            setPaymentStatus('success');
+                            setTimeout(() => {
+                              setWizardStage('download');
+                            }, 1800);
+                          } catch (err) {
+                            console.error(err);
+                            setPaymentStatus('pending');
+                            alert('Payment sync failed. Please try again.');
+                          }
+                        }, 1600);
+                      }}
+                      className="w-full py-3.5 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 font-bold text-xs tracking-wider uppercase rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 animate-pulse" />
+                      <span>{t('verifyPayBtn') || 'Simulate Verified Instant Pay'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {paymentStatus === 'verifying' && (
+                <div className="py-12 space-y-4 animate-pulse text-center">
+                  <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Verifying Transaction...
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-semibold uppercase">
+                    Contacting Bank Servers. Do not close this window.
                   </p>
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Edit Mode: Template overlay */}
-          {previewMode === 'edit' && (
-          <div className="relative w-full mx-auto" style={{ maxWidth: '780px' }}>
-            
-            {/* The Background PDF Page Renderer with overlays inside */}
-            <PdfPageRenderer 
-              pdfUrl={`${BACKEND_URL}/assets/annapurna_template.pdf`} 
-              pageNumber={step}
-              scale={1.35}
-            >
-              {/* Absolute positioned interactive text overlay grid */}
-              <div className="absolute inset-0 z-20 pointer-events-none w-full h-full">
-                <div className="relative w-full h-full">
+              {paymentStatus === 'success' && (
+                <div className="py-12 space-y-6 text-center animate-scale-up relative">
+                  <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-950/40 rounded-full border-2 border-emerald-500 flex items-center justify-center text-4xl mx-auto shadow-lg shadow-emerald-500/10 animate-bounce">
+                    🎉
+                  </div>
                   
-                  {/* Dynamically render page overlay schema fields */}
-                  {(pageOverlays[step] || []).map((field) => {
-                    const val = getFieldValue(field.id);
-                    const isCheckbox = field.type === 'checkbox';
-                    
-                    if (isCheckbox) {
-                      const isChecked = getFieldChecked(field.id);
-                      return (
-                        <div
-                          key={field.id}
-                          onClick={() => handleCheckboxToggle(field.id)}
-                          className={`absolute border border-dashed hover:border-emerald-500 rounded cursor-pointer pointer-events-auto flex items-center justify-center transition-all bg-white/50 hover:bg-emerald-50/20 ${
-                            isChecked ? 'border-emerald-600 bg-emerald-50/10' : 'border-slate-300'
-                          }`}
-                          style={{
-                            left: field.left,
-                            top: field.top,
-                            width: '14px',
-                            height: '14px',
-                          }}
-                        >
-                          {isChecked && (
-                            <span className="font-extrabold text-[12px] text-blue-700 flex items-center justify-center leading-none transform -translate-y-0.5 select-none font-sans">✓</span>
-                          )}
-                        </div>
-                      );
-                    }
-
-                    if (field.type === 'select') {
-                      return (
-                        <select
-                          key={field.id}
-                          disabled={isViewOnly}
-                          value={val}
-                          onChange={(e) => setFieldValue(field.id, e.target.value)}
-                          className="absolute pointer-events-auto outline-none border-none text-[11px] font-medium text-blue-700 bg-emerald-50/40 focus:bg-yellow-50/70 p-0.5 rounded transition-all font-cursive"
-                          style={{
-                            left: field.left,
-                            top: field.top,
-                            width: field.width || '80px',
-                            height: '22px'
-                          }}
-                        >
-                          <option value="">--</option>
-                          {field.options?.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
-                      );
-                    }
-
-                    const memberIndex = field.id.startsWith('members.') ? parseInt(field.id.split('.')[1], 10) : undefined;
-                    return (
-                      <div 
-                        key={field.id} 
-                        className="absolute pointer-events-auto flex items-center gap-1 group" 
-                        style={{
-                          left: field.left,
-                          top: field.top,
-                          width: field.width || '150px',
-                          height: '24px',
-                          transform: 'translateY(-3px)'
-                        }}
-                      >
-                        <input
-                          type={field.type}
-                          disabled={isViewOnly}
-                          value={val}
-                          onChange={(e) => setFieldValue(field.id, e.target.value)}
-                          placeholder={field.placeholder || ''}
-                          className="flex-1 outline-none border-none text-xs font-semibold text-blue-700 bg-transparent focus:bg-yellow-100/50 p-0.5 font-cursive transition-all"
-                          style={{
-                            height: '18px',
-                            fontSize: '11px',
-                            fontFamily: "'Kalam', cursive"
-                          }}
-                        />
-                        {field.docUploadType && !isViewOnly && (
-                          <label 
-                            className="shrink-0 p-0.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded cursor-pointer flex items-center justify-center transition-all opacity-40 group-hover:opacity-100 hover:scale-105 shadow-sm" 
-                            title={t('uploadBtn')}
-                          >
-                            <UploadCloud className="w-3 h-3 text-emerald-600" />
-                            <input 
-                              type="file" 
-                              disabled={ocrLoading !== null} 
-                              onChange={(e) => handleFileUploadAndOcr(e, field.docUploadType!, memberIndex)} 
-                              className="hidden" 
-                            />
-                          </label>
-                        )}
-                      </div>
-                    );
-                  })}
-
-
+                  <div className="space-y-2">
+                    <h3 className="text-base font-extrabold text-emerald-600 uppercase tracking-wider">
+                      {t('paySuccessMsg') || 'Payment Received Successfully!'}
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                      Redirecting to download workspace...
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </PdfPageRenderer>
-
-          </div>
-          )}
-
-          {/* Action progress control buttons */}
-          <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 pt-6 mt-6">
-            <button
-              onClick={async () => {
-                const ok = await saveDraftToServer(false);
-                if (ok && step > 1) setStep(step - 1);
-              }}
-              disabled={step === 1}
-              className="px-4 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 disabled:opacity-30 font-bold text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 cursor-pointer transition-all"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>{t('previous')}</span>
-            </button>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handlePrintPdf}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>{t('print')}</span>
-              </button>
-
-              <button
-                onClick={handleDownloadPdf}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl flex items-center gap-1.5 border border-slate-200 dark:border-slate-800 cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>{t('download')}</span>
-              </button>
-
-              {step < 11 ? (
-                <button
-                  onClick={async () => {
-                    const ok = await saveDraftToServer(false);
-                    if (ok) setStep(step + 1);
-                  }}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 cursor-pointer transition-all"
-                >
-                  <span>{t('next')}</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              ) : (
-                !isViewOnly && (
-                  <button
-                    onClick={handleSubmitApplication}
-                    disabled={loading}
-                    className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 cursor-pointer shadow-md shadow-emerald-500/10 transition-all"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>{loading ? t('submitting') : 'Submit Form'}</span>
-                  </button>
-                )
               )}
             </div>
+
+            {/* Back button */}
+            {paymentStatus === 'pending' && (
+              <div className="flex justify-start">
+                <button
+                  type="button"
+                  onClick={() => setWizardStage('preview')}
+                  className="px-5 py-2 border border-slate-200 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all cursor-pointer active:scale-95"
+                >
+                  <span>{t('previous') || 'Previous'}</span>
+                </button>
+              </div>
+            )}
           </div>
+        )}
 
-        </section>
+        {/* STAGE 5: DOWNLOAD & PRINT SYSTEM RECEIPT */}
+        {wizardStage === 'download' && (
+          <div className="space-y-6 animate-slide-up max-w-[700px] mx-auto w-full">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 dark:from-emerald-600 dark:to-teal-700 rounded-3xl p-6 text-white text-center shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+              <h2 className="text-lg font-black uppercase tracking-wider flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-6 h-6 animate-pulse" />
+                <span>{language === 'en' ? 'Application Completed!' : 'আবেদনপত্র জমা সম্পূর্ণ!'}</span>
+              </h2>
+              <p className="text-xs text-emerald-100 mt-2 font-medium">
+                {language === 'en' ? 'Annapurna Yojana form is compiled successfully with visually aligned checkmarks' : 'অন্নপূর্ণা যোজনা আবেদনপত্র সফলভাবে তৈরি হয়েছে এবং খসড়াটি যাচাই করা হয়েছে'}
+              </p>
+            </div>
 
+            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-md space-y-6">
+              <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-905 pb-3">
+                <FileText className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                  Registration Receipt / জমার রশিদ
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-855">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase block">Application ID</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{formData.application_id || 'APN-TEMP'}</span>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-855">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase block">Head of Family</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{formData.family.hofName || 'N/A'}</span>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-855">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase block">Mobile Number</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{formData.family.hofMobile || 'N/A'}</span>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-855">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase block">Payment Status</span>
+                  <span className="text-xs font-bold text-emerald-600 mt-0.5 block flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <span>Paid & Verified (১০ টাকা)</span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl transition-all shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <Download className="w-4.5 h-4.5" />
+                  <span>{t('download') || 'Download Filled Form'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrintPdf}
+                  className="flex-1 py-3 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-855 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <Printer className="w-4.5 h-4.5" />
+                  <span>{t('print') || 'Print Hardcopy'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard')}
+                className="flex-1 py-3 border border-slate-200 dark:border-slate-855 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold text-[10px] uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Return to Dashboard</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  router.push('/dashboard');
+                }}
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shadow-md shadow-slate-950/10"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>Create New Application</span>
+              </button>
+            </div>
+          </div>
+        )}
       </main>
+
 
       {/* 5. Direct Mobile Camera Capture Scanner Modal */}
       {cameraActive && (
