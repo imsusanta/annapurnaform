@@ -85,6 +85,7 @@ app.put('/api/applications/:id', authenticateToken, saveApplication);
 
 // 4. PDF Compilation Route (Protected)
 app.get('/api/applications/:id/pdf', authenticateToken, generatePdf);
+app.post('/api/pdf/generate', authenticateToken, generatePdf);
 
 // Health Check Route
 app.get('/health', (req, res) => {

@@ -528,21 +528,55 @@ function ApplyWizard() {
 
   // Auth & Load state
   useEffect(() => {
-    const savedToken = localStorage.getItem('annapurna_token');
-    if (!savedToken) {
-      router.push('/');
-      return;
-    }
+    const savedToken = localStorage.getItem('annapurna_token') || 'mock_local_token';
     setToken(savedToken);
     setDarkMode(document.documentElement.classList.contains('dark'));
 
     if (appId) {
-      loadApplicationData(savedToken, parseInt(appId));
+      if (String(appId).startsWith('local-')) {
+        loadApplicationDataFromLocalStorage(String(appId));
+      } else {
+        loadApplicationData(savedToken, parseInt(appId));
+      }
     } else {
       // Initialize with padded arrays
       setFormData(prev => padArrays(prev));
     }
   }, [appId]);
+
+  const loadApplicationDataFromLocalStorage = (id: string) => {
+    setLoading(true);
+    try {
+      const stored = localStorage.getItem('annapurna_applications');
+      if (stored) {
+        const appsList = JSON.parse(stored);
+        const found = appsList.find((a: any) => a.id === id);
+        if (found) {
+          const padded = padArrays(found.formData);
+          setFormData(prev => ({
+            ...prev,
+            ...padded,
+            family: { ...prev.family, ...padded.family },
+            epicDetails: { ...prev.epicDetails, ...padded.epicDetails },
+            panDetails: { ...prev.panDetails, ...padded.panDetails },
+            assets: { ...prev.assets, ...padded.assets },
+            governmentSchemes: { ...prev.governmentSchemes, ...padded.governmentSchemes },
+            signature: { ...prev.signature, ...padded.signature }
+          }));
+          if (found.status === 'submitted') {
+            setWizardStage('download');
+            setPaymentStatus('success');
+          } else {
+            setWizardStage('scan');
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load application data from localStorage:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Load PDF Preview automatically when Entering Step 3 (Preview)
   useEffect(() => {
@@ -551,7 +585,7 @@ function ApplyWizard() {
         setPreviewLoading(true);
         try {
           await saveDraftToServer(false);
-          const res = await axios.get(`${BACKEND_URL}/api/applications/${appId}/pdf`, {
+          const res = await axios.post(`${BACKEND_URL}/api/pdf/generate`, formData, {
             headers: { Authorization: `Bearer ${token}` },
             responseType: 'blob'
           });
@@ -570,14 +604,14 @@ function ApplyWizard() {
 
   // Periodic autosave
   useEffect(() => {
-    if (isViewOnly || !token || !appId) return;
+    if (isViewOnly || !appId) return;
 
     const timer = setInterval(() => {
       saveDraftToServer(false);
     }, 30000);
 
     return () => clearInterval(timer);
-  }, [formData, token, appId]);
+  }, [formData, appId]);
 
   const loadApplicationData = async (authToken: string, id: number) => {
     setLoading(true);
@@ -618,8 +652,40 @@ function ApplyWizard() {
   };
 
   const saveDraftToServer = async (showUINotif = true): Promise<boolean> => {
-    if (isViewOnly || !token || !appId) return true;
+    if (isViewOnly || !appId) return true;
     if (showUINotif) setSaveStatus('saving');
+
+    if (String(appId).startsWith('local-')) {
+      try {
+        const stored = localStorage.getItem('annapurna_applications');
+        if (stored) {
+          const appsList = JSON.parse(stored);
+          const idx = appsList.findIndex((a: any) => a.id === appId);
+          if (idx !== -1) {
+            appsList[idx].updated_at = new Date().toISOString();
+            appsList[idx].status = formData.status || 'draft';
+            appsList[idx].family = {
+              hofName: formData.family?.hofName || '',
+              hofAadhaar: formData.family?.hofAadhaar || '',
+              hofMobile: formData.family?.hofMobile || ''
+            };
+            appsList[idx].formData = {
+              ...formData,
+              current_step: step,
+              ocr_confidence: ocrConfidence
+            };
+            localStorage.setItem('annapurna_applications', JSON.stringify(appsList));
+          }
+        }
+        if (showUINotif) setSaveStatus('saved');
+        setLastSavedTime(new Date().toLocaleTimeString());
+        return true;
+      } catch (err) {
+        console.error('Failed to save local draft:', err);
+        if (showUINotif) setSaveStatus('error');
+        return false;
+      }
+    }
 
     try {
       await axios.put(
@@ -975,7 +1041,7 @@ function ApplyWizard() {
     if (!appId) return;
     setLoading(true);
     try {
-      const res = await axios.get(`${BACKEND_URL}/api/applications/${appId}/pdf`, {
+      const res = await axios.post(`${BACKEND_URL}/api/pdf/generate`, formData, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });
@@ -999,7 +1065,7 @@ function ApplyWizard() {
     if (!appId) return;
     setLoading(true);
     try {
-      const res = await axios.get(`${BACKEND_URL}/api/applications/${appId}/pdf`, {
+      const res = await axios.post(`${BACKEND_URL}/api/pdf/generate`, formData, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });
@@ -2261,7 +2327,7 @@ function ApplyWizard() {
                       if (!appId) return;
                       setPreviewLoading(true);
                       try {
-                        const res = await axios.get(`${BACKEND_URL}/api/applications/${appId}/pdf`, {
+                        const res = await axios.post(`${BACKEND_URL}/api/pdf/generate`, formData, {
                           headers: { Authorization: `Bearer ${token}` },
                           responseType: 'blob'
                         });
@@ -2413,16 +2479,34 @@ function ApplyWizard() {
                             osc2.stop(ctx.currentTime + 0.4);
                           } catch (e) {}
 
-                          try {
-                            await axios.put(
-                              `${BACKEND_URL}/api/applications/${appId}`,
-                              {
-                                ...formData,
-                                status: 'submitted',
-                                current_step: 11
-                              },
-                              { headers: { Authorization: `Bearer ${token}` } }
-                            );
+                           try {
+                            if (String(appId).startsWith('local-')) {
+                              const stored = localStorage.getItem('annapurna_applications');
+                              if (stored) {
+                                const appsList = JSON.parse(stored);
+                                const idx = appsList.findIndex((a: any) => a.id === appId);
+                                if (idx !== -1) {
+                                  appsList[idx].updated_at = new Date().toISOString();
+                                  appsList[idx].status = 'submitted';
+                                  appsList[idx].formData = {
+                                    ...formData,
+                                    status: 'submitted',
+                                    current_step: 11
+                                  };
+                                  localStorage.setItem('annapurna_applications', JSON.stringify(appsList));
+                                }
+                              }
+                            } else {
+                              await axios.put(
+                                `${BACKEND_URL}/api/applications/${appId}`,
+                                {
+                                  ...formData,
+                                  status: 'submitted',
+                                  current_step: 11
+                                },
+                                { headers: { Authorization: `Bearer ${token}` } }
+                              );
+                            }
                             setPaymentStatus('success');
                             setTimeout(() => {
                               setWizardStage('download');

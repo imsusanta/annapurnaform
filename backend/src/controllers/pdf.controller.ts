@@ -212,18 +212,50 @@ async function getApplicationDataForPdf(appId: number): Promise<any> {
 }
 
 export const generatePdf = async (req: Request, res: Response) => {
-  const appId = parseInt(req.params.id);
+  const appId = parseInt(req.params.id) || 0;
   const authedReq = req as AuthenticatedRequest;
 
   try {
-    const appData = await getApplicationDataForPdf(appId);
-    if (!appData) {
-      return res.status(404).json({ error: 'Application not found' });
-    }
+    let appData: any;
 
-    // Verify ownership
-    if (appData.user_id && authedReq.user?.role !== 'admin' && appData.user_id !== authedReq.user?.id) {
-      return res.status(403).json({ error: 'Access denied: You do not own this application draft' });
+    if (req.body && req.body.family) {
+      console.log('Generating PDF from request payload body directly (Stateless Mode)...');
+      const b = req.body;
+      appData = {
+        user_id: 1,
+        application_id: b.application_id || 'APN-TEMP',
+        status: b.status || 'draft',
+        created_at: new Date(),
+        hofName: b.family?.hofName || '',
+        hofDob: b.family?.hofDob || '',
+        hofGender: b.family?.hofGender || '',
+        hofAadhaar: b.family?.hofAadhaar || '',
+        hofMobile: b.family?.hofMobile || '',
+        hofAddress: b.family?.hofAddress || '',
+        hofCategory: b.family?.hofCategory || '',
+        householdId: b.family?.householdId || '',
+        casteCertificatePath: b.family?.casteCertificatePath || '',
+        members: b.members || [],
+        bankDetails: b.bankDetails || [],
+        epicDetails: b.epicDetails || {},
+        panDetails: b.panDetails || {},
+        assets: b.assets || {},
+        education: b.education || [],
+        children: b.children || [],
+        governmentSchemes: b.governmentSchemes || {},
+        signature: b.signature?.signatureData || b.signature || null
+      };
+    } else {
+      console.log(`Generating PDF from DB for appId: ${appId}...`);
+      appData = await getApplicationDataForPdf(appId);
+      if (!appData) {
+        return res.status(404).json({ error: 'Application not found' });
+      }
+
+      // Verify ownership
+      if (appData.user_id && authedReq.user?.role !== 'admin' && appData.user_id !== authedReq.user?.id) {
+        return res.status(403).json({ error: 'Access denied: You do not own this application draft' });
+      }
     }
 
     // Check if custom template PDF exists in the assets folder
