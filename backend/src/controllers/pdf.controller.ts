@@ -469,8 +469,7 @@ export const generatePdf = async (req: Request, res: Response) => {
 
       // 9. Name, DOB, Gender, Relation with Head of Family, Aadhaar (of all family members)
       // Draw HOF details next to HOF: under section 9
-      const hofDetailsStr = `${appData.hofName} | DOB: ${formatDob(appData.hofDob)} | Gender: ${appData.hofGender} | Relation: Self | Aadhaar: ${appData.hofAadhaar}`;
-      drawTextVal(p1, hofDetailsStr, 250, 345.6, 7.5);
+      drawTextVal(p1, appData.hofName, 250, 345.6, 9);
       drawTick(p1, 433.8, 347.5, true); // HOF Apply Tick
 
       // Member 1-3
