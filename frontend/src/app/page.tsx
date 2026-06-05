@@ -15,6 +15,28 @@ interface FamilyMember {
   relation: string;
   aadhaar: string;
   aadhaarPath?: string;
+  epicNumber?: string;
+  acPartNumber?: string;
+  voterCardPath?: string;
+  voterCardBackPath?: string;
+  panNumber?: string;
+  panCardPath?: string;
+  bankName?: string;
+  accountNumber?: string;
+  ifsc?: string;
+  passbookPath?: string;
+  isLiterate?: boolean;
+  highestQualification?: string;
+  employmentStatus?: string;
+  caaStatus?: string;
+  caaNumber?: string;
+  otherCardType?: string;
+  otherCardNumber?: string;
+  otherCardIssueDate?: string;
+  tribunalStatus?: string;
+  tribunalDetails?: string;
+  dbtReceiving?: boolean;
+  dbtSchemes?: string;
 }
 
 interface BankInfo {
@@ -245,6 +267,9 @@ function ApplyWizard() {
       sumAssured: '',
       annualIncome: '',
       incomeTax_Yes: false, incomeTax_No: false,
+      constitutionalPost_Yes: false, constitutionalPost_No: false, constitutionalPost_Member: '',
+      govPensioner_Yes: false, govPensioner_No: false, govPensioner_Member: '',
+      gstRegistered_Yes: false, gstRegistered_No: false, gstin: '',
       // Mapped checkboxes for UI
       hofEmp_Govt: false, hofEmp_Private: false, hofEmp_FormalSelf: false, hofEmp_PartTime: false, hofEmp_InformalSelf: false, hofEmp_Migrant: false, hofEmp_Unemployed: false, hofEmp_Others: false,
       m1Emp_Govt: false, m1Emp_Private: false, m1Emp_FormalSelf: false, m1Emp_PartTime: false, m1Emp_InformalSelf: false, m1Emp_Migrant: false, m1Emp_Unemployed: false, m1Emp_Others: false,
@@ -808,7 +833,7 @@ function ApplyWizard() {
     if (!files || files.length === 0) return;
     const file = files[0];
 
-    setOcrLoading(docType);
+    setOcrLoading(memberIndex !== undefined ? `${docType}_${memberIndex}` : docType);
     setOcrFeedback(null);
 
     const uploadData = new FormData();
@@ -870,6 +895,28 @@ function ApplyWizard() {
             next.members[memberIndex].aadhaar = extractedData.aadhaarNumber || next.members[memberIndex].aadhaar;
             next.members[memberIndex].aadhaarPath = fileUrl;
           }
+        } else if (docType === 'voter_front_member' && memberIndex !== undefined) {
+          if (next.members[memberIndex]) {
+            next.members[memberIndex].epicNumber = extractedData.epicNumber || next.members[memberIndex].epicNumber;
+            next.members[memberIndex].acPartNumber = extractedData.acPartNumber || next.members[memberIndex].acPartNumber;
+            next.members[memberIndex].voterCardPath = fileUrl;
+          }
+        } else if (docType === 'voter_back_member' && memberIndex !== undefined) {
+          if (next.members[memberIndex]) {
+            next.members[memberIndex].voterCardBackPath = fileUrl;
+          }
+        } else if (docType === 'pan_member' && memberIndex !== undefined) {
+          if (next.members[memberIndex]) {
+            next.members[memberIndex].panNumber = extractedData.panNumber || next.members[memberIndex].panNumber;
+            next.members[memberIndex].panCardPath = fileUrl;
+          }
+        } else if (docType === 'passbook_member' && memberIndex !== undefined) {
+          if (next.members[memberIndex]) {
+            next.members[memberIndex].bankName = extractedData.bankName || next.members[memberIndex].bankName;
+            next.members[memberIndex].accountNumber = extractedData.accountNumber || next.members[memberIndex].accountNumber;
+            next.members[memberIndex].ifsc = extractedData.ifsc || next.members[memberIndex].ifsc;
+            next.members[memberIndex].passbookPath = fileUrl;
+          }
         }
 
         return next;
@@ -883,7 +930,7 @@ function ApplyWizard() {
     }
   };
 
-  const handleDeleteDocument = (docType: string) => {
+  const handleDeleteDocument = (docType: string, memberIndex?: number) => {
     if (isViewOnly) return;
     const confirmDelete = window.confirm(
       language === 'en'
@@ -894,34 +941,58 @@ function ApplyWizard() {
 
     setFormData(prev => {
       const next = JSON.parse(JSON.stringify(prev)); // Deep copy
-      if (docType === 'aadhaar_front') {
-        next.family.aadhaarFrontPath = '';
-        next.family.hofName = '';
-        next.family.hofDob = '';
-        next.family.hofGender = '';
-        next.family.hofAadhaar = '';
-      } else if (docType === 'aadhaar_back') {
-        next.family.aadhaarBackPath = '';
-        next.family.hofAddress = '';
-      } else if (docType === 'ration_card') {
-        next.family.rationCardPath = '';
-        next.family.householdId = '';
-      } else if (docType === 'caste_certificate') {
-        next.family.casteCertificatePath = '';
-        next.family.hofCategory = '';
-      } else if (docType === 'voter_card') {
-        next.epicDetails.voterCardPath = '';
-        next.epicDetails.epicNumber = '';
-        next.epicDetails.acPartNumber = '';
-      } else if (docType === 'pan_card') {
-        next.panDetails.panCardPath = '';
-        next.panDetails.panNumber = '';
-      } else if (docType === 'passbook') {
-        if (next.bankDetails[0]) {
-          next.bankDetails[0].passbookPath = '';
-          next.bankDetails[0].bankName = '';
-          next.bankDetails[0].accountNumber = '';
-          next.bankDetails[0].ifsc = '';
+      if (memberIndex !== undefined && next.members[memberIndex]) {
+        if (docType === 'aadhaar_member') {
+          next.members[memberIndex].aadhaarPath = '';
+          next.members[memberIndex].name = '';
+          next.members[memberIndex].dob = '';
+          next.members[memberIndex].gender = '';
+          next.members[memberIndex].aadhaar = '';
+        } else if (docType === 'voter_front_member') {
+          next.members[memberIndex].voterCardPath = '';
+          next.members[memberIndex].epicNumber = '';
+          next.members[memberIndex].acPartNumber = '';
+        } else if (docType === 'voter_back_member') {
+          next.members[memberIndex].voterCardBackPath = '';
+        } else if (docType === 'pan_member') {
+          next.members[memberIndex].panCardPath = '';
+          next.members[memberIndex].panNumber = '';
+        } else if (docType === 'passbook_member') {
+          next.members[memberIndex].passbookPath = '';
+          next.members[memberIndex].bankName = '';
+          next.members[memberIndex].accountNumber = '';
+          next.members[memberIndex].ifsc = '';
+        }
+      } else {
+        if (docType === 'aadhaar_front') {
+          next.family.aadhaarFrontPath = '';
+          next.family.hofName = '';
+          next.family.hofDob = '';
+          next.family.hofGender = '';
+          next.family.hofAadhaar = '';
+        } else if (docType === 'aadhaar_back') {
+          next.family.aadhaarBackPath = '';
+          next.family.hofAddress = '';
+        } else if (docType === 'ration_card') {
+          next.family.rationCardPath = '';
+          next.family.householdId = '';
+        } else if (docType === 'caste_certificate') {
+          next.family.casteCertificatePath = '';
+          next.family.hofCategory = '';
+        } else if (docType === 'voter_card') {
+          next.epicDetails.voterCardPath = '';
+          next.epicDetails.epicNumber = '';
+          next.epicDetails.acPartNumber = '';
+        } else if (docType === 'pan_card') {
+          next.panDetails.panCardPath = '';
+          next.panDetails.panNumber = '';
+        } else if (docType === 'passbook') {
+          if (next.bankDetails[0]) {
+            next.bankDetails[0].passbookPath = '';
+            next.bankDetails[0].bankName = '';
+            next.bankDetails[0].accountNumber = '';
+            next.bankDetails[0].ifsc = '';
+          }
         }
       }
       return next;
@@ -1026,7 +1097,15 @@ function ApplyWizard() {
         }
       } as unknown as React.ChangeEvent<HTMLInputElement>;
 
-      handleFileUploadAndOcr(mockEvent, cameraActive);
+      let finalDocType = cameraActive;
+      let memberIndex: number | undefined = undefined;
+      const memberMatch = cameraActive.match(/^([a-z_]+)_member_(\d+)$/);
+      if (memberMatch) {
+        finalDocType = memberMatch[1] + '_member'; // e.g. 'aadhaar_member'
+        memberIndex = parseInt(memberMatch[2], 10);
+      }
+
+      handleFileUploadAndOcr(mockEvent, finalDocType, memberIndex);
     }, 'image/png');
   };
 
@@ -1444,26 +1523,26 @@ function ApplyWizard() {
   const pageUploads = pageOverlays[step]?.filter(f => f.docUploadType) || [];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-200 flex flex-col font-sans">
+    <div className="min-h-screen min-h-dvh bg-slate-50 dark:bg-slate-900 transition-colors duration-200 flex flex-col font-sans">
       
       {/* Premium Glassmorphic Top Nav Header */}
-      <header className="sticky top-0 z-40 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex justify-between items-center transition-colors">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-sm font-extrabold text-slate-800 dark:text-slate-100 tracking-wide uppercase flex items-center gap-1.5">
+      <header className="sticky top-0 z-40 w-full bg-white/85 dark:bg-slate-950/85 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 py-2.5 sm:py-4 flex justify-between items-center transition-colors gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
+          <div className="min-w-0">
+            <h1 className="text-[11px] sm:text-sm font-extrabold text-slate-800 dark:text-slate-100 tracking-wide uppercase flex items-center gap-1.5 truncate">
               <span>{t('title')}</span>
-              <span className="text-[10px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900">
+              <span className="text-[8px] sm:text-[10px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 px-1.5 sm:px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900 shrink-0 whitespace-nowrap">
                 {formData.application_id || 'APN-TEMP'}
               </span>
             </h1>
-            <p className="text-[10px] text-slate-400 font-semibold">{t('subtitle')}</p>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 font-semibold truncate">{t('subtitle')}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Last saved / Sync indicators */}
           {lastSavedTime && (
-            <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
+            <div className="hidden md:flex items-center gap-1.5 text-[10px] text-slate-400 font-medium">
               <RefreshCw className="w-3 h-3 text-emerald-500 animate-spin-slow" />
               <span>Autosaved: {lastSavedTime}</span>
             </div>
@@ -1475,7 +1554,7 @@ function ApplyWizard() {
             className="p-2 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 bg-slate-100 dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-[10px] font-extrabold uppercase"
           >
             <Languages className="w-4 h-4" />
-            <span>{language === 'en' ? 'বাংলা' : 'English'}</span>
+            <span className="hidden sm:inline">{language === 'en' ? 'বাংলা' : 'English'}</span>
           </button>
 
           {/* Theme Selector */}
@@ -1490,10 +1569,10 @@ function ApplyWizard() {
           {!isViewOnly && (
             <button
               onClick={() => saveDraftToServer(true)}
-              className="px-4 py-2 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold text-xs uppercase rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200 dark:border-slate-800"
+              className="p-2 sm:px-4 sm:py-2 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold text-xs uppercase rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200 dark:border-slate-800"
             >
               <Save className="w-4 h-4" />
-              <span>{saveStatus === 'saving' ? 'Saving...' : 'Save Draft'}</span>
+              <span className="hidden sm:inline">{saveStatus === 'saving' ? 'Saving...' : 'Save Draft'}</span>
             </button>
           )}
         </div>
@@ -1501,8 +1580,8 @@ function ApplyWizard() {
 
       
       {/* Simplified Wizard Timeline Navigation Tracker */}
-      <div className="w-full bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 py-4 px-6 transition-colors shadow-sm shrink-0">
-        <div className="max-w-[1400px] mx-auto flex items-center justify-between overflow-x-auto gap-4 scrollbar-none py-1">
+      <div className="wizard-timeline-bar w-full bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 py-2.5 sm:py-4 px-3 sm:px-6 transition-colors shadow-sm shrink-0">
+        <div className="max-w-[1400px] mx-auto flex items-center justify-start sm:justify-between overflow-x-auto gap-2 sm:gap-4 scrollbar-none scroll-snap-x py-1 -mx-1 px-1">
           {[
             { id: 'scan', label: t('scanDocs') || 'Scan Documents', num: '1', activeColor: 'border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20' },
             { id: 'form', label: t('fillForm') || 'Fill Smart Form', num: '2', activeColor: 'border-sky-500 text-sky-600 bg-sky-50 dark:bg-sky-950/20' },
@@ -1513,7 +1592,7 @@ function ApplyWizard() {
             const isActive = wizardStage === stg.id;
             const isCompleted = ['scan', 'form', 'preview', 'payment', 'download'].indexOf(wizardStage) > ['scan', 'form', 'preview', 'payment', 'download'].indexOf(stg.id);
             return (
-              <div key={stg.id} className="flex items-center gap-2 shrink-0">
+              <div key={stg.id} className="flex items-center gap-2 shrink-0 scroll-snap-align-start">
                 <button
                   type="button"
                   disabled={isViewOnly && stg.id === 'payment'}
@@ -1551,7 +1630,7 @@ function ApplyWizard() {
       </div>
 
       {/* Main Workspace Frame */}
-      <main className="flex-1 max-w-[1400px] w-full mx-auto p-6 flex flex-col justify-start">
+      <main className="flex-1 max-w-[1400px] w-full mx-auto p-3 sm:p-6 flex flex-col justify-start">
         
         {/* STAGE 1: DOCUMENT SCAN TRAY */}
         {wizardStage === 'scan' && (
@@ -1573,7 +1652,7 @@ function ApplyWizard() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
               {[
                 { key: 'aadhaar_front', label: t('uploadAadhaarFront') || 'Aadhaar Card Front', path: formData.family.aadhaarFrontPath },
                 { key: 'aadhaar_back', label: t('uploadAadhaarBack') || 'Aadhaar Card Back', path: formData.family.aadhaarBackPath },
@@ -1587,7 +1666,7 @@ function ApplyWizard() {
                 return (
                   <div 
                     key={doc.key} 
-                    className={`bg-white dark:bg-slate-950 border rounded-3xl p-5 shadow-sm transition-all relative overflow-hidden flex flex-col justify-between h-[180px] ${
+                    className={`bg-white dark:bg-slate-950 border rounded-3xl p-5 shadow-sm transition-all relative overflow-hidden flex flex-col justify-between h-auto min-h-[160px] sm:h-[180px] ${
                       isUploaded 
                         ? 'border-emerald-500/35 bg-emerald-500/[0.01]' 
                         : 'border-slate-200 dark:border-slate-850 hover:border-slate-300 dark:hover:border-slate-800'
@@ -1685,7 +1764,7 @@ function ApplyWizard() {
               </div>
               
               {/* Form categories tabs */}
-              <div className="flex items-center gap-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-sm shrink-0">
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-sm shrink-0 overflow-x-auto scrollbar-none max-w-full">
                 {[
                   { id: 'hof', label: t('hofSection') || '👤 HOF Profile', icon: '👤' },
                   { id: 'members', label: t('familySection') || '👨‍👩‍👦 Members', icon: '👨‍👩‍👦' },
@@ -1711,7 +1790,7 @@ function ApplyWizard() {
 
             {/* TAB CONTENT: HEAD OF FAMILY */}
             {formTab === 'hof' && (
-              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6">
                 <div className="border-l-4 border-sky-500 pl-3">
                   <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
                     {language === 'en' ? 'Head of Family Identity Profile' : 'পরিবারের প্রধানের পরিচয়পত্র'}
@@ -1867,6 +1946,80 @@ function ApplyWizard() {
                       </span>
                     )}
                   </div>
+
+                  {/* HOF Literacy Status */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {language === 'en' ? 'Literate Status' : 'শিক্ষাগত স্থিতি'} / শিক্ষিত কি না?
+                    </label>
+                    <select
+                      value={getFieldValue('education.0.isLiterate') === '' ? 'true' : String(getFieldValue('education.0.isLiterate'))}
+                      onChange={(e) => {
+                        const val = e.target.value === 'true';
+                        setFieldValue('education.0.isLiterate', val);
+                        if (formData.family.hofAadhaar) {
+                          setFieldValue('education.0.memberAadhaar', formData.family.hofAadhaar);
+                        }
+                      }}
+                      className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 text-xs"
+                    >
+                      <option value="true">{language === 'en' ? 'Yes / Literate' : 'হ্যাঁ / শিক্ষিত'}</option>
+                      <option value="false">{language === 'en' ? 'No / Illiterate' : 'না / অশিক্ষিত'}</option>
+                    </select>
+                  </div>
+
+                  {/* HOF Highest Qualification */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {language === 'en' ? 'Highest Qualification' : 'সর্বোচ্চ শিক্ষাগত যোগ্যতা'}
+                    </label>
+                    <select
+                      value={getFieldValue('education.0.highestQualification') || 'Graduate'}
+                      disabled={getFieldValue('education.0.isLiterate') === false}
+                      onChange={(e) => setFieldValue('education.0.highestQualification', e.target.value)}
+                      className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 text-xs disabled:opacity-50"
+                    >
+                      <option value="Primary">{language === 'en' ? 'Primary' : 'প্রাথমিক'}</option>
+                      <option value="Secondary">{language === 'en' ? 'Secondary' : 'মাধ্যমিক'}</option>
+                      <option value="Higher Secondary">{language === 'en' ? 'Higher Secondary' : 'উচ্চ মাধ্যমিক'}</option>
+                      <option value="Graduate">{language === 'en' ? 'Graduate' : 'স্নাতক'}</option>
+                      <option value="Post Graduate">{language === 'en' ? 'Post Graduate' : 'স্নাতকোত্তর'}</option>
+                      <option value="Illiterate">{language === 'en' ? 'N/A' : 'প্রযোজ্য নয়'}</option>
+                    </select>
+                  </div>
+
+                  {/* HOF Nature of Employment */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl relative">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {language === 'en' ? 'Employment Status' : 'প্রধানের কর্মসংস্থান স্থিতি'}
+                    </label>
+                    <select
+                      value={(() => {
+                        const keys = ['Govt', 'Private', 'FormalSelf', 'PartTime', 'InformalSelf', 'Migrant', 'Unemployed', 'Others'];
+                        for (const k of keys) {
+                          if (formData.assets[`hofEmp_${k}` as keyof typeof formData.assets]) return k;
+                        }
+                        return 'Unemployed';
+                      })()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const keys = ['Govt', 'Private', 'FormalSelf', 'PartTime', 'InformalSelf', 'Migrant', 'Unemployed', 'Others'];
+                        keys.forEach(k => {
+                          setFieldValue(`assets.hofEmp_${k}`, k === val);
+                        });
+                      }}
+                      className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 text-xs"
+                    >
+                      <option value="Govt">{language === 'en' ? 'Govt Employee' : 'সরকারি চাকরিজীবী'}</option>
+                      <option value="Private">{language === 'en' ? 'Private Sector' : 'বেসরকারি চাকরিজীবী'}</option>
+                      <option value="FormalSelf">{language === 'en' ? 'Formal Self-Employed' : 'প্রাতিষ্ঠানিক স্ব-নিযুক্ত'}</option>
+                      <option value="PartTime">{language === 'en' ? 'Part-Time Work' : 'খণ্ডকালীন কর্মী'}</option>
+                      <option value="InformalSelf">{language === 'en' ? 'Informal Self-Employed' : 'অপ্রাতিষ্ঠানিক স্ব-নিযুক্ত'}</option>
+                      <option value="Migrant">{language === 'en' ? 'Migrant Worker' : 'পরিযায়ী শ্রমিক'}</option>
+                      <option value="Unemployed">{language === 'en' ? 'Unemployed' : 'বেকার / কোনোটিই নয়'}</option>
+                      <option value="Others">{language === 'en' ? 'Others' : 'অন্যান্য'}</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Navigation Row */}
@@ -1893,7 +2046,7 @@ function ApplyWizard() {
 
             {/* TAB CONTENT: FAMILY MEMBERS */}
             {formTab === 'members' && (
-              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-4">
                   <div className="border-l-4 border-sky-500 pl-3">
                     <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
@@ -2023,6 +2176,176 @@ function ApplyWizard() {
                                 <option value="Mother">{t('mother') || 'Mother'}</option>
                               </select>
                             </div>
+
+                            {/* Member Literacy */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl relative">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">
+                                {language === 'en' ? 'Literate Status' : 'শিক্ষাগত স্থিতি'} / শিক্ষিত?
+                              </label>
+                              <select
+                                value={member.isLiterate === undefined ? 'true' : String(member.isLiterate)}
+                                onChange={(e) => {
+                                  const val = e.target.value === 'true';
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.members[index].isLiterate = val;
+                                    const aadhaar = next.members[index].aadhaar || '';
+                                    if (!next.education[index + 1]) {
+                                      next.education[index + 1] = { memberAadhaar: aadhaar, isLiterate: val, highestQualification: '' };
+                                    } else {
+                                      next.education[index + 1].isLiterate = val;
+                                      next.education[index + 1].memberAadhaar = aadhaar;
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                              >
+                                <option value="true">{language === 'en' ? 'Yes / Literate' : 'হ্যাঁ / শিক্ষিত'}</option>
+                                <option value="false">{language === 'en' ? 'No / Illiterate' : 'না / অশিক্ষিত'}</option>
+                              </select>
+                            </div>
+
+                            {/* Member Highest Qualification */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl relative">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">
+                                {language === 'en' ? 'Highest Qualification' : 'সর্বোচ্চ যোগ্যতা'}
+                              </label>
+                              <select
+                                value={member.highestQualification || 'Primary'}
+                                disabled={member.isLiterate === false}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.members[index].highestQualification = val;
+                                    const aadhaar = next.members[index].aadhaar || '';
+                                    if (!next.education[index + 1]) {
+                                      next.education[index + 1] = { memberAadhaar: aadhaar, isLiterate: true, highestQualification: val };
+                                    } else {
+                                      next.education[index + 1].highestQualification = val;
+                                      next.education[index + 1].memberAadhaar = aadhaar;
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs disabled:opacity-50"
+                              >
+                                <option value="Primary">{language === 'en' ? 'Primary' : 'প্রাথমিক'}</option>
+                                <option value="Secondary">{language === 'en' ? 'Secondary' : 'মাধ্যমিক'}</option>
+                                <option value="Higher Secondary">{language === 'en' ? 'Higher Secondary' : 'উচ্চ মাধ্যমিক'}</option>
+                                <option value="Graduate">{language === 'en' ? 'Graduate' : 'স্নাতক'}</option>
+                                <option value="Post Graduate">{language === 'en' ? 'Post Graduate' : 'স্নাতকোত্তর'}</option>
+                                <option value="Illiterate">{language === 'en' ? 'N/A' : 'প্রযোজ্য নয়'}</option>
+                              </select>
+                            </div>
+
+                            {/* Member Employment Status */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl relative">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">
+                                {language === 'en' ? 'Employment Status' : 'কর্মসংস্থান স্থিতি'}
+                              </label>
+                              <select
+                                value={member.employmentStatus || 'Unemployed'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.members[index].employmentStatus = val;
+                                    const mKey = `m${index + 1}`;
+                                    const keys = ['Govt', 'Private', 'FormalSelf', 'PartTime', 'InformalSelf', 'Migrant', 'Unemployed', 'Others'];
+                                    keys.forEach(k => {
+                                      next.assets[`${mKey}Emp_${k}`] = k === val;
+                                    });
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                              >
+                                <option value="Govt">{language === 'en' ? 'Govt Employee' : 'সরকারি চাকরিজীবী'}</option>
+                                <option value="Private">{language === 'en' ? 'Private Sector' : 'বেসরকারি চাকরিজীবী'}</option>
+                                <option value="FormalSelf">{language === 'en' ? 'Formal Self-Employed' : 'প্রাতিষ্ঠানিক স্ব-নিযুক্ত'}</option>
+                                <option value="PartTime">{language === 'en' ? 'Part-Time Work' : 'খণ্ডকালীন কর্মী'}</option>
+                                <option value="InformalSelf">{language === 'en' ? 'Informal Self-Employed' : 'অপ্রাতিষ্ঠানিক স্ব-নিযুক্ত'}</option>
+                                <option value="Migrant">{language === 'en' ? 'Migrant Worker' : 'পরিযায়ী শ্রমিক'}</option>
+                                <option value="Unemployed">{language === 'en' ? 'Unemployed' : 'বেকার / কোনোটিই নয়'}</option>
+                                <option value="Others">{language === 'en' ? 'Others' : 'অন্যান্য'}</option>
+                              </select>
+                            </div>
+
+                            {/* Member Documents Section */}
+                            <div className="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/60">
+                              <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-sky-500" />
+                                <span>Documents / নথি সমূহ</span>
+                              </h4>
+                              
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                                {[
+                                  { key: 'aadhaar_member', label: 'Aadhaar Card', path: member.aadhaarPath },
+                                  { key: 'voter_front_member', label: 'Voter Front', path: member.voterCardPath },
+                                  { key: 'voter_back_member', label: 'Voter Back', path: member.voterCardBackPath },
+                                  { key: 'pan_member', label: 'PAN Card', path: member.panCardPath },
+                                  { key: 'passbook_member', label: 'Passbook', path: member.passbookPath }
+                                ].map((doc) => {
+                                  const isUploaded = !!doc.path;
+                                  return (
+                                    <div 
+                                      key={doc.key} 
+                                      className={`bg-white dark:bg-slate-950 border rounded-2xl p-3 shadow-sm transition-all relative overflow-hidden flex flex-col justify-between min-h-[105px] ${
+                                        isUploaded 
+                                          ? 'border-emerald-500/35 bg-emerald-500/[0.01]' 
+                                          : 'border-slate-200/80 dark:border-slate-800 hover:border-slate-350 dark:hover:border-slate-750'
+                                      }`}
+                                    >
+                                      <div>
+                                        <div className="flex items-center justify-between gap-1 mb-1">
+                                          <span className="text-[8px] font-bold text-slate-400 uppercase truncate pr-1">{doc.label}</span>
+                                          {isUploaded && <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />}
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="mt-2 pt-2 border-t border-slate-50 dark:border-slate-900 flex items-center justify-between gap-1.5">
+                                        {!isUploaded ? (
+                                          <div className="flex items-center gap-1 w-full">
+                                            <label className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-250 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold text-[9px] uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-[0.98] min-w-0">
+                                              <UploadCloud className="w-3 h-3 text-emerald-600 shrink-0" />
+                                              <span className="truncate">{ocrLoading === `${doc.key}_${index}` ? '...' : 'Upload'}</span>
+                                              <input 
+                                                type="file" 
+                                                disabled={ocrLoading !== null} 
+                                                onChange={(e) => handleFileUploadAndOcr(e, doc.key, index)} 
+                                                className="hidden" 
+                                              />
+                                            </label>
+                                            
+                                            <button
+                                              type="button"
+                                              onClick={() => setCameraActive(`${doc.key}_${index}`)}
+                                              disabled={ocrLoading !== null}
+                                              className="py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[9px] uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-[0.98] shrink-0"
+                                            >
+                                              <Camera className="w-3 h-3 shrink-0" />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center justify-between w-full">
+                                            <span className="text-[8px] font-bold text-emerald-600 uppercase truncate">OCR OK</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteDocument(doc.key, index)}
+                                              className="p-1.5 border border-red-200 dark:border-red-950/20 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-all cursor-pointer"
+                                            >
+                                              <Trash2 className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
@@ -2054,7 +2377,7 @@ function ApplyWizard() {
 
             {/* TAB CONTENT: BANK & ASSETS */}
             {formTab === 'bank' && (
-              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6">
                 <div className="border-l-4 border-sky-500 pl-3">
                   <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
                     {t('bankDetailsTitle') || 'Bank Details'} / ব্যাংক অ্যাকাউন্টের বিবরণ
@@ -2196,6 +2519,230 @@ function ApplyWizard() {
                       </div>
                     </>
                   )}
+
+                  {/* Land ownership toggle */}
+                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 pr-4 leading-normal">
+                      {language === 'en' ? 'Own Agricultural Land?' : 'কৃষি জমি আছে কি?'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextVal = !formData.assets.landOwnership;
+                        setFieldValue('assets.landOwnership', nextVal);
+                        if (!nextVal) setFieldValue('assets.landSize', '');
+                      }}
+                      className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-all duration-200 shrink-0 ${
+                        formData.assets.landOwnership ? 'bg-sky-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                      }`}
+                    >
+                      <span className="bg-white w-5 h-5 rounded-full shadow-md" />
+                    </button>
+                  </div>
+
+                  {/* Land Size if owned */}
+                  {formData.assets.landOwnership && (
+                    <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl">
+                      <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                        {language === 'en' ? 'Land Size (Acres)' : 'জমির পরিমাণ (একর)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.assets.landSize || ''}
+                        onChange={(e) => setFieldValue('assets.landSize', e.target.value)}
+                        className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                        placeholder="E.g., 1.5"
+                      />
+                    </div>
+                  )}
+
+                  {/* Annual Family Income */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {language === 'en' ? 'Annual Family Income' : 'পরিবারের বার্ষিক মোট আয়'}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.assets.annualIncome || ''}
+                      onChange={(e) => setFieldValue('assets.annualIncome', e.target.value.replace(/\D/g, ''))}
+                      className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                      placeholder="E.g., 120000"
+                    />
+                  </div>
+
+                  {/* Health Insurance Type */}
+                  <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                      {language === 'en' ? 'Health Insurance Scheme' : 'স্বাস্থ্য বীমা প্রকল্প'}
+                    </label>
+                    <select
+                      value={formData.assets.healthInsuranceType || 'None'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFieldValue('assets.healthInsuranceType', val);
+                        if (val === 'None') {
+                          setFieldValue('assets.premium', '');
+                          setFieldValue('assets.sumAssured', '');
+                        }
+                      }}
+                      className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 text-xs"
+                    >
+                      <option value="None">{language === 'en' ? 'None' : 'কোনোটিই নয়'}</option>
+                      <option value="Govt">{language === 'en' ? 'Government Scheme' : 'সরকারি প্রকল্প'}</option>
+                      <option value="Private">{language === 'en' ? 'Private Insurance' : 'বেসরকারি বীমা'}</option>
+                    </select>
+                  </div>
+
+                  {/* Premium and Sum Assured if has health insurance */}
+                  {formData.assets.healthInsuranceType && formData.assets.healthInsuranceType !== 'None' && (
+                    <>
+                      <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                          {language === 'en' ? 'Annual Premium Paid' : 'বার্ষিক প্রিমিয়াম'}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.assets.premium || ''}
+                          onChange={(e) => setFieldValue('assets.premium', e.target.value.replace(/\D/g, ''))}
+                          className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                          placeholder="Annual premium in Rs."
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                          {language === 'en' ? 'Sum Assured' : 'বীমা রাশি (Sum Assured)'}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.assets.sumAssured || ''}
+                          onChange={(e) => setFieldValue('assets.sumAssured', e.target.value.replace(/\D/g, ''))}
+                          className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                          placeholder="Sum assured in Rs."
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Constitutional Post toggle */}
+                  <div className="flex flex-col gap-3 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 pr-4 leading-normal">
+                        {language === 'en' ? 'Does any family member hold a Constitutional Post?' : 'পরিবারের কোনো সদস্য কি কোনো সাংবিধানিক পদে আছেন?'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = !formData.assets.constitutionalPost_Yes;
+                          setFieldValue('assets.constitutionalPost_Yes', nextVal);
+                          setFieldValue('assets.constitutionalPost_No', !nextVal);
+                          if (!nextVal) setFieldValue('assets.constitutionalPost_Member', '');
+                        }}
+                        className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-all duration-200 shrink-0 ${
+                          formData.assets.constitutionalPost_Yes ? 'bg-sky-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                        }`}
+                      >
+                        <span className="bg-white w-5 h-5 rounded-full shadow-md" />
+                      </button>
+                    </div>
+                    {formData.assets.constitutionalPost_Yes && (
+                      <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 animate-slide-down">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                          {language === 'en' ? 'Select Member holding Constitutional Post' : 'সাংবিধানিক পদাধিকারী সদস্য নির্বাচন করুন'}
+                        </label>
+                        <select
+                          value={formData.assets.constitutionalPost_Member || ''}
+                          onChange={(e) => setFieldValue('assets.constitutionalPost_Member', e.target.value)}
+                          className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 text-xs"
+                        >
+                          <option value="">-- Select Member --</option>
+                          <option value={formData.family.hofName || 'Head of Family'}>{formData.family.hofName || 'Head of Family'} (HOF)</option>
+                          {formData.members.map((m, idx) => m.name && (
+                            <option key={idx} value={m.name}>{m.name} (Member {idx + 1})</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Government Pensioner toggle */}
+                  <div className="flex flex-col gap-3 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 pr-4 leading-normal">
+                        {language === 'en' ? 'Does any family member receive a Government Pension?' : 'পরিবারের কোনো সদস্য কি সরকারি পেনশন পান?'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = !formData.assets.govPensioner_Yes;
+                          setFieldValue('assets.govPensioner_Yes', nextVal);
+                          setFieldValue('assets.govPensioner_No', !nextVal);
+                          if (!nextVal) setFieldValue('assets.govPensioner_Member', '');
+                        }}
+                        className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-all duration-200 shrink-0 ${
+                          formData.assets.govPensioner_Yes ? 'bg-sky-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                        }`}
+                      >
+                        <span className="bg-white w-5 h-5 rounded-full shadow-md" />
+                      </button>
+                    </div>
+                    {formData.assets.govPensioner_Yes && (
+                      <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 animate-slide-down">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                          {language === 'en' ? 'Select Pensioner Member' : 'পেনশনভোগী সদস্য নির্বাচন করুন'}
+                        </label>
+                        <select
+                          value={formData.assets.govPensioner_Member || ''}
+                          onChange={(e) => setFieldValue('assets.govPensioner_Member', e.target.value)}
+                          className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 text-xs"
+                        >
+                          <option value="">-- Select Member --</option>
+                          <option value={formData.family.hofName || 'Head of Family'}>{formData.family.hofName || 'Head of Family'} (HOF)</option>
+                          {formData.members.map((m, idx) => m.name && (
+                            <option key={idx} value={m.name}>{m.name} (Member {idx + 1})</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* GST Registered toggle */}
+                  <div className="flex flex-col gap-3 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/60 rounded-2xl md:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 pr-4 leading-normal">
+                        {language === 'en' ? 'Is any family member registered under GST?' : 'পরিবারের কোনো সদস্য কি জিএসটি (GST) নিবন্ধিত?'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = !formData.assets.gstRegistered_Yes;
+                          setFieldValue('assets.gstRegistered_Yes', nextVal);
+                          setFieldValue('assets.gstRegistered_No', !nextVal);
+                          if (!nextVal) setFieldValue('assets.gstin', '');
+                        }}
+                        className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-all duration-200 shrink-0 ${
+                          formData.assets.gstRegistered_Yes ? 'bg-sky-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                        }`}
+                      >
+                        <span className="bg-white w-5 h-5 rounded-full shadow-md" />
+                      </button>
+                    </div>
+                    {formData.assets.gstRegistered_Yes && (
+                      <div className="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 animate-slide-down">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                          GSTIN / জিএসটিআইএন নম্বর
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={15}
+                          value={formData.assets.gstin || ''}
+                          onChange={(e) => setFieldValue('assets.gstin', e.target.value.toUpperCase())}
+                          className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 focus:border-sky-500 text-slate-800 dark:text-slate-100 font-semibold outline-none py-1 transition-colors text-xs"
+                          placeholder="15-character GSTIN number"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Navigation Row */}
@@ -2222,7 +2769,7 @@ function ApplyWizard() {
 
             {/* TAB CONTENT: SCHEMES & CHILDREN */}
             {formTab === 'schemes' && (
-              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6">
                 <div className="border-l-4 border-sky-500 pl-3">
                   <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
                     {language === 'en' ? 'Currently Received Welfare Schemes' : 'বর্তমানে প্রাপ্ত সরকারি সুবিধাসমূহ'}
@@ -2291,53 +2838,133 @@ function ApplyWizard() {
                     formData.children.map((child, index) => {
                       if (!child) return null;
                       return (
-                        <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 rounded-2xl">
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase">Child Name / নাম</label>
-                            <input
-                              type="text"
-                              value={child.name || ''}
-                              onChange={(e) => {
-                                setFormData(prev => {
-                                  const next = JSON.parse(JSON.stringify(prev));
-                                  next.children[index].name = e.target.value;
-                                  return next;
-                                });
-                              }}
-                              className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
-                            />
+                        <div key={index} className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-850 rounded-3xl p-5 space-y-4">
+                          <div className="border-b border-slate-100 dark:border-slate-900 pb-2">
+                            <span className="text-[10px] font-extrabold bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-400 px-2 py-0.5 rounded-full border border-sky-200 dark:border-sky-900 uppercase">
+                              Child {index + 1} / সন্তান {index + 1}
+                            </span>
                           </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Child Name */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Child Name / নাম</label>
+                              <input
+                                type="text"
+                                value={child.name || ''}
+                                onChange={(e) => {
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.children[index].name = e.target.value;
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                                placeholder="Enter name"
+                              />
+                            </div>
 
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase">Class / শ্রেণী</label>
-                            <input
-                              type="text"
-                              value={child.className || ''}
-                              onChange={(e) => {
-                                setFormData(prev => {
-                                  const next = JSON.parse(JSON.stringify(prev));
-                                  next.children[index].className = e.target.value;
-                                  return next;
-                                });
-                              }}
-                              className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
-                            />
-                          </div>
+                            {/* Class */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Class / শ্রেণী</label>
+                              <input
+                                type="text"
+                                value={child.className || ''}
+                                onChange={(e) => {
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.children[index].className = e.target.value;
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                                placeholder="E.g., Class V"
+                              />
+                            </div>
 
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase">School / বিদ্যালয়</label>
-                            <input
-                              type="text"
-                              value={child.schoolName || ''}
-                              onChange={(e) => {
-                                setFormData(prev => {
-                                  const next = JSON.parse(JSON.stringify(prev));
-                                  next.children[index].schoolName = e.target.value;
-                                  return next;
-                                });
-                              }}
-                              className="w-full bg-transparent border-b border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
-                            />
+                            {/* School Name */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">School / বিদ্যালয়</label>
+                              <input
+                                type="text"
+                                value={child.schoolName || ''}
+                                onChange={(e) => {
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.children[index].schoolName = e.target.value;
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                                placeholder="School Name"
+                              />
+                            </div>
+
+                            {/* School Type */}
+                            <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl">
+                              <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">School Type / বিদ্যালয়ের ধরণ</label>
+                              <select
+                                value={child.schoolType || ''}
+                                onChange={(e) => {
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.children[index].schoolType = e.target.value;
+                                    return next;
+                                  });
+                                }}
+                                className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                              >
+                                <option value="">-- Select type --</option>
+                                <option value="Government">{language === 'en' ? 'Government' : 'সরকারি'}</option>
+                                <option value="Private">{language === 'en' ? 'Private' : 'বেসরকারি'}</option>
+                                <option value="Recognized Madrasah">{language === 'en' ? 'Recognized Madrasah' : 'অনুমোদিত মাদ্রাসা'}</option>
+                                <option value="Other Madrasah">{language === 'en' ? 'Other Madrasah' : 'অন্যান্য মাদ্রাসা'}</option>
+                                <option value="Others">{language === 'en' ? 'Others' : 'অন্যান্য'}</option>
+                              </select>
+                            </div>
+
+                            {/* Vaccination status */}
+                            <div className="flex items-center justify-between bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl">
+                              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Vaccinated? / টিকাকরণ সম্পন্ন?</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData(prev => {
+                                    const next = JSON.parse(JSON.stringify(prev));
+                                    next.children[index].isVaccinated = !next.children[index].isVaccinated;
+                                    if (!next.children[index].isVaccinated) {
+                                      next.children[index].vaccinationCardId = '';
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className={`w-9 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-all duration-200 shrink-0 ${
+                                  child.isVaccinated ? 'bg-sky-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                                }`}
+                              >
+                                <span className="bg-white w-4 h-4 rounded-full shadow-md" />
+                              </button>
+                            </div>
+
+                            {/* Vaccination Card ID */}
+                            {child.isVaccinated && (
+                              <div className="space-y-1 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 p-3 rounded-2xl">
+                                <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide">Vaccination Card ID / টিকাকরণ কার্ড নম্বর</label>
+                                <input
+                                  type="text"
+                                  value={child.vaccinationCardId || ''}
+                                  onChange={(e) => {
+                                    setFormData(prev => {
+                                      const next = JSON.parse(JSON.stringify(prev));
+                                      next.children[index].vaccinationCardId = e.target.value;
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-full bg-transparent border-none text-slate-800 dark:text-slate-100 font-semibold outline-none py-0.5 text-xs"
+                                  placeholder="E.g., Card ID"
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -2746,7 +3373,7 @@ function ApplyWizard() {
       {/* 5. Direct Mobile Camera Capture Scanner Modal */}
       {cameraActive && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 backdrop-blur-md animate-fade-in p-4 sm:p-6">
-          <div className="bg-slate-950 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl w-full max-w-lg relative flex flex-col items-center">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl w-full max-w-lg max-h-[90dvh] relative flex flex-col items-center">
             
             {/* Modal Title and Controls */}
             <div className="w-full px-6 py-4 flex items-center justify-between border-b border-slate-900">
@@ -2824,7 +3451,7 @@ function ApplyWizard() {
       )}
 
       {/* Footer */}
-      <footer className="w-full py-6 text-center text-[10px] text-slate-400 dark:text-slate-600 tracking-wide border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 transition-colors mt-auto">
+      <footer className="w-full py-4 sm:py-6 text-center text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-600 tracking-wide border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 transition-colors mt-auto px-4">
         © 2026 Department of Food & Supplies, Government of West Bengal. All rights reserved.
       </footer>
     </div>

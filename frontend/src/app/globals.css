@@ -23,6 +23,12 @@
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
   
   --radius: 12px;
+  
+  /* Safe area insets for notched devices */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 /* Dark Mode Configuration (controlled by .dark class on html) */
@@ -50,12 +56,16 @@ body {
   color: var(--foreground);
   transition: background-color 0.3s ease, color 0.3s ease;
   min-height: 100vh;
+  min-height: 100dvh; /* Use dynamic viewport height on mobile */
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
 }
 
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -70,6 +80,15 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
   opacity: 0.8;
+}
+
+/* Hide scrollbar but keep functionality for horizontal scroll containers */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 /* Glassmorphism utility */
@@ -98,8 +117,59 @@ textarea:focus-visible {
 /* Expand tap targets on touchscreen */
 @media (pointer: coarse) {
   input, select, button, textarea {
-    min-height: 48px;
+    min-height: 44px;
   }
+}
+
+/* ─── MOBILE-FIRST RESPONSIVE UTILITIES ─── */
+
+/* Mobile: tighter padding on main containers */
+@media (max-width: 639px) {
+  /* Header compact mode */
+  header {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+  
+  /* Main workspace less padding */
+  main {
+    padding: 12px !important;
+  }
+  
+  /* Wizard step bar compact */
+  .wizard-timeline-bar {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+  
+  /* Cards less internal padding */
+  .mobile-card-compact {
+    padding: 16px !important;
+  }
+  
+  /* Rounded corners slightly smaller on mobile */
+  .rounded-3xl {
+    border-radius: 20px;
+  }
+}
+
+/* Smooth horizontal scroll snap for step indicators */
+.scroll-snap-x {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scroll-snap-x > * {
+  scroll-snap-align: start;
+}
+
+/* Bottom safe area for fixed elements on iPhones */
+.pb-safe {
+  padding-bottom: max(16px, var(--safe-bottom));
 }
 
 /* Micro-animations */
@@ -114,11 +184,86 @@ textarea:focus-visible {
   }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 .animate-slide-up {
   animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Pulse ring for active speaker button */
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+
+.animate-pulse-ring {
+  animation: pulseRing 1.5s infinite;
 }
 
 /* Custom Checkbox accent color */
 input[type="checkbox"], input[type="radio"] {
   accent-color: var(--primary);
+}
+
+/* Prevent iOS zoom on input focus */
+@media screen and (max-width: 639px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="email"],
+  input[type="date"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Floating bottom nav bar on mobile */
+@media (max-width: 639px) {
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    padding-bottom: max(12px, var(--safe-bottom));
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+  }
+  
+  .dark .mobile-bottom-nav {
+    background: rgba(15, 23, 42, 0.95);
+  }
+}
+
+/* Improved touch feedback */
+.touch-bounce {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.touch-bounce:active {
+  transform: scale(0.97);
 }

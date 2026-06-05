@@ -192,9 +192,20 @@ export const saveApplication = async (req: AuthenticatedRequest, res: Response) 
           hof_name = $1, hof_dob = $2, hof_gender = $3, hof_aadhaar = $4, hof_mobile = $5, 
           hof_address = $6, hof_category = $7, household_id = $8,
           aadhaar_front_path = $9, aadhaar_back_path = $10, ration_card_path = $11,
-          caste_certificate_path = $12
-         WHERE application_id = $13`,
-        [f.hofName, f.hofDob || null, f.hofGender, f.hofAadhaar, f.hofMobile, f.hofAddress, f.hofCategory, f.householdId, f.aadhaarFrontPath, f.aadhaarBackPath, f.rationCardPath, f.casteCertificatePath || null, appId]
+          caste_certificate_path = $12,
+          caa_status = $13, caa_number = $14,
+          other_card_type = $15, other_card_number = $16, other_card_issue_date = $17,
+          tribunal_status = $18, tribunal_details = $19,
+          dbt_receiving = $20, dbt_schemes = $21
+         WHERE application_id = $22`,
+        [
+          f.hofName, f.hofDob || null, f.hofGender, f.hofAadhaar, f.hofMobile, f.hofAddress, f.hofCategory, f.householdId, f.aadhaarFrontPath, f.aadhaarBackPath, f.rationCardPath, f.casteCertificatePath || null,
+          f.caaStatus || 'Not Applicable', f.caaNumber || '',
+          f.otherCardType || '', f.otherCardNumber || '', f.otherCardIssueDate || '',
+          f.tribunalStatus || 'Not Applicable', f.tribunalDetails || '',
+          f.dbtReceiving || false, f.dbtSchemes || '',
+          appId
+        ]
       );
     }
 
@@ -204,9 +215,25 @@ export const saveApplication = async (req: AuthenticatedRequest, res: Response) 
       for (const m of data.members) {
         if (m.name) {
           await query(
-            `INSERT INTO members (application_id, name, dob, gender, relation, aadhaar, aadhaar_path) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [appId, m.name, m.dob || null, m.gender, m.relation, m.aadhaar, m.aadhaarPath]
+            `INSERT INTO members (
+              application_id, name, dob, gender, relation, aadhaar, aadhaar_path, 
+              bank_name, account_number, ifsc, passbook_path, 
+              epic_number, ac_part_number, voter_card_path, voter_card_back_path, 
+              pan_number, pan_card_path, is_literate, highest_qualification, employment_status,
+              caa_status, caa_number, other_card_type, other_card_number, other_card_issue_date, 
+              tribunal_status, tribunal_details, dbt_receiving, dbt_schemes
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)`,
+            [
+              appId, m.name, m.dob || null, m.gender, m.relation, m.aadhaar, m.aadhaarPath,
+              m.bankName || '', m.accountNumber || '', m.ifsc || '', m.passbookPath || '',
+              m.epicNumber || '', m.acPartNumber || '', m.voterCardPath || '', m.voterCardBackPath || '',
+              m.panNumber || '', m.panCardPath || '',
+              m.isLiterate !== false, m.highestQualification || '', m.employmentStatus || '',
+              m.caaStatus || 'Not Applicable', m.caaNumber || '',
+              m.otherCardType || '', m.otherCardNumber || '', m.otherCardIssueDate || '',
+              m.tribunalStatus || 'Not Applicable', m.tribunalDetails || '',
+              m.dbtReceiving || false, m.dbtSchemes || ''
+            ]
           );
         }
       }
@@ -230,8 +257,8 @@ export const saveApplication = async (req: AuthenticatedRequest, res: Response) 
     if (data.epicDetails) {
       const e = data.epicDetails;
       await query(
-        `UPDATE epic_details SET epic_number = $1, ac_part_number = $2, voter_card_path = $3 WHERE application_id = $4`,
-        [e.epicNumber, e.acPartNumber, e.voterCardPath, appId]
+        `UPDATE epic_details SET epic_number = $1, ac_part_number = $2, voter_card_path = $3, voter_card_back_path = $4 WHERE application_id = $5`,
+        [e.epicNumber, e.acPartNumber, e.voterCardPath, e.voterCardBackPath || '', appId]
       );
     }
 
@@ -374,14 +401,25 @@ export const getApplication = async (req: AuthenticatedRequest, res: Response) =
           householdId: app.families?.householdId || '',
           aadhaarFrontPath: app.families?.aadhaarFrontPath || '',
           aadhaarBackPath: app.families?.aadhaarBackPath || '',
-          rationCardPath: app.families?.rationCardPath || ''
+          rationCardPath: app.families?.rationCardPath || '',
+          casteCertificatePath: app.families?.casteCertificatePath || '',
+          caaStatus: app.families?.caaStatus || 'Not Applicable',
+          caaNumber: app.families?.caaNumber || '',
+          otherCardType: app.families?.otherCardType || '',
+          otherCardNumber: app.families?.otherCardNumber || '',
+          otherCardIssueDate: app.families?.otherCardIssueDate || '',
+          tribunalStatus: app.families?.tribunalStatus || 'Not Applicable',
+          tribunalDetails: app.families?.tribunalDetails || '',
+          dbtReceiving: app.families?.dbtReceiving || false,
+          dbtSchemes: app.families?.dbtSchemes || ''
         },
         members: app.members || [],
         bankDetails: app.bank_details || [],
         epicDetails: {
           epicNumber: app.epic_details?.epicNumber || '',
           acPartNumber: app.epic_details?.acPartNumber || '',
-          voterCardPath: app.epic_details?.voterCardPath || ''
+          voterCardPath: app.epic_details?.voterCardPath || '',
+          voterCardBackPath: app.epic_details?.voterCardBackPath || ''
         },
         panDetails: {
           panNumber: app.pan_details?.panNumber || '',
@@ -449,7 +487,16 @@ export const getApplication = async (req: AuthenticatedRequest, res: Response) =
       aadhaarFrontPath: familyData.aadhaar_front_path,
       aadhaarBackPath: familyData.aadhaar_back_path,
       rationCardPath: familyData.ration_card_path,
-      casteCertificatePath: familyData.caste_certificate_path || ''
+      casteCertificatePath: familyData.caste_certificate_path || '',
+      caaStatus: familyData.caa_status || 'Not Applicable',
+      caaNumber: familyData.caa_number || '',
+      otherCardType: familyData.other_card_type || '',
+      otherCardNumber: familyData.other_card_number || '',
+      otherCardIssueDate: familyData.other_card_issue_date || '',
+      tribunalStatus: familyData.tribunal_status || 'Not Applicable',
+      tribunalDetails: familyData.tribunal_details || '',
+      dbtReceiving: familyData.dbt_receiving || false,
+      dbtSchemes: familyData.dbt_schemes || ''
     };
 
     const formattedMembers = membersRes.rows.map(m => ({
@@ -458,7 +505,29 @@ export const getApplication = async (req: AuthenticatedRequest, res: Response) =
       gender: m.gender,
       relation: m.relation,
       aadhaar: m.aadhaar,
-      aadhaarPath: m.aadhaar_path
+      aadhaarPath: m.aadhaar_path,
+      bankName: m.bank_name || '',
+      accountNumber: m.account_number || '',
+      ifsc: m.ifsc || '',
+      passbookPath: m.passbook_path || '',
+      epicNumber: m.epic_number || '',
+      acPartNumber: m.ac_part_number || '',
+      voterCardPath: m.voter_card_path || '',
+      voterCardBackPath: m.voter_card_back_path || '',
+      panNumber: m.pan_number || '',
+      panCardPath: m.pan_card_path || '',
+      isLiterate: m.is_literate !== false,
+      highestQualification: m.highest_qualification || '',
+      employmentStatus: m.employment_status || '',
+      caaStatus: m.caa_status || 'Not Applicable',
+      caaNumber: m.caa_number || '',
+      otherCardType: m.other_card_type || '',
+      otherCardNumber: m.other_card_number || '',
+      otherCardIssueDate: m.other_card_issue_date || '',
+      tribunalStatus: m.tribunal_status || 'Not Applicable',
+      tribunalDetails: m.tribunal_details || '',
+      dbtReceiving: m.dbt_receiving || false,
+      dbtSchemes: m.dbt_schemes || ''
     }));
 
     const formattedBank = bankRes.rows.map(b => ({
@@ -473,7 +542,8 @@ export const getApplication = async (req: AuthenticatedRequest, res: Response) =
     const formattedEpic = {
       epicNumber: epicData.epic_number,
       acPartNumber: epicData.ac_part_number,
-      voterCardPath: epicData.voter_card_path
+      voterCardPath: epicData.voter_card_path,
+      voterCardBackPath: epicData.voter_card_back_path || ''
     };
 
     const panData = panRes.rows[0] || {};

@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS epic_details (
   application_id INTEGER REFERENCES applications(id) ON DELETE CASCADE UNIQUE,
   epic_number VARCHAR(30),
   ac_part_number VARCHAR(30),
-  voter_card_path TEXT
+  voter_card_path TEXT,
+  voter_card_back_path TEXT
 );
 
 -- PAN Details Table
@@ -143,3 +144,41 @@ CREATE INDEX IF NOT EXISTS idx_user_mobile ON users(mobile_number);
 ALTER TABLE assets ADD COLUMN IF NOT EXISTS extra_fields TEXT;
 ALTER TABLE pan_details ADD COLUMN IF NOT EXISTS pan_holder_name VARCHAR(100);
 ALTER TABLE families ADD COLUMN IF NOT EXISTS caste_certificate_path TEXT;
+ALTER TABLE epic_details ADD COLUMN IF NOT EXISTS voter_card_back_path TEXT;
+
+-- Family members bank and voter details support
+ALTER TABLE members ADD COLUMN IF NOT EXISTS bank_name VARCHAR(100);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS account_number VARCHAR(30);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS ifsc VARCHAR(20);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS passbook_path TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS epic_number VARCHAR(30);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS ac_part_number VARCHAR(30);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS voter_card_path TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS voter_card_back_path TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS pan_number VARCHAR(20);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS pan_card_path TEXT;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS is_literate BOOLEAN;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS highest_qualification VARCHAR(100);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS employment_status VARCHAR(50);
+
+-- Page 6-10 extensions (CAA, Credit Cards, Tribunal, DBT Schemes per person)
+ALTER TABLE families ADD COLUMN IF NOT EXISTS caa_status VARCHAR(50) DEFAULT 'Not Applicable';
+ALTER TABLE families ADD COLUMN IF NOT EXISTS caa_number VARCHAR(100) DEFAULT '';
+ALTER TABLE families ADD COLUMN IF NOT EXISTS other_card_type VARCHAR(50) DEFAULT '';
+ALTER TABLE families ADD COLUMN IF NOT EXISTS other_card_number VARCHAR(100) DEFAULT '';
+ALTER TABLE families ADD COLUMN IF NOT EXISTS other_card_issue_date VARCHAR(50) DEFAULT '';
+ALTER TABLE families ADD COLUMN IF NOT EXISTS tribunal_status VARCHAR(50) DEFAULT 'Not Applicable';
+ALTER TABLE families ADD COLUMN IF NOT EXISTS tribunal_details TEXT DEFAULT '';
+ALTER TABLE families ADD COLUMN IF NOT EXISTS dbt_receiving BOOLEAN DEFAULT FALSE;
+ALTER TABLE families ADD COLUMN IF NOT EXISTS dbt_schemes TEXT DEFAULT '';
+
+ALTER TABLE members ADD COLUMN IF NOT EXISTS caa_status VARCHAR(50) DEFAULT 'Not Applicable';
+ALTER TABLE members ADD COLUMN IF NOT EXISTS caa_number VARCHAR(100) DEFAULT '';
+ALTER TABLE members ADD COLUMN IF NOT EXISTS other_card_type VARCHAR(50) DEFAULT '';
+ALTER TABLE members ADD COLUMN IF NOT EXISTS other_card_number VARCHAR(100) DEFAULT '';
+ALTER TABLE members ADD COLUMN IF NOT EXISTS other_card_issue_date VARCHAR(50) DEFAULT '';
+ALTER TABLE members ADD COLUMN IF NOT EXISTS tribunal_status VARCHAR(50) DEFAULT 'Not Applicable';
+ALTER TABLE members ADD COLUMN IF NOT EXISTS tribunal_details TEXT DEFAULT '';
+ALTER TABLE members ADD COLUMN IF NOT EXISTS dbt_receiving BOOLEAN DEFAULT FALSE;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS dbt_schemes TEXT DEFAULT '';
+

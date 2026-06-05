@@ -109,6 +109,15 @@ async function getApplicationDataForPdf(appId: number): Promise<any> {
       hofCategory: app.families?.hofCategory || app.families?.hof_category || '',
       householdId: app.families?.householdId || app.families?.household_id || '',
       casteCertificatePath: app.families?.casteCertificatePath || app.families?.caste_certificate_path || '',
+      caaStatus: app.families?.caaStatus || app.families?.caa_status || 'Not Applicable',
+      caaNumber: app.families?.caaNumber || app.families?.caa_number || '',
+      otherCardType: app.families?.otherCardType || app.families?.other_card_type || '',
+      otherCardNumber: app.families?.otherCardNumber || app.families?.other_card_number || '',
+      otherCardIssueDate: app.families?.otherCardIssueDate || app.families?.other_card_issue_date || '',
+      tribunalStatus: app.families?.tribunalStatus || app.families?.tribunal_status || 'Not Applicable',
+      tribunalDetails: app.families?.tribunalDetails || app.families?.tribunal_details || '',
+      dbtReceiving: app.families?.dbtReceiving || app.families?.dbt_receiving || false,
+      dbtSchemes: app.families?.dbtSchemes || app.families?.dbt_schemes || '',
       members: app.members || [],
       bankDetails: app.bank_details || app.bankDetails || [],
       epicDetails: app.epic_details || app.epicDetails || {},
@@ -158,12 +167,43 @@ async function getApplicationDataForPdf(appId: number): Promise<any> {
     hofCategory: f.hof_category || '',
     householdId: f.household_id || '',
     casteCertificatePath: f.caste_certificate_path || '',
+    caaStatus: f.caa_status || 'Not Applicable',
+    caaNumber: f.caa_number || '',
+    otherCardType: f.other_card_type || '',
+    otherCardNumber: f.other_card_number || '',
+    otherCardIssueDate: f.other_card_issue_date || '',
+    tribunalStatus: f.tribunal_status || 'Not Applicable',
+    tribunalDetails: f.tribunal_details || '',
+    dbtReceiving: f.dbt_receiving || false,
+    dbtSchemes: f.dbt_schemes || '',
     members: membersRes.rows.map(m => ({
       name: m.name,
       dob: m.dob ? m.dob.toISOString().split('T')[0] : '',
       gender: m.gender,
       relation: m.relation,
-      aadhaar: m.aadhaar
+      aadhaar: m.aadhaar,
+      bankName: m.bank_name || '',
+      accountNumber: m.account_number || '',
+      ifsc: m.ifsc || '',
+      passbookPath: m.passbook_path || '',
+      epicNumber: m.epic_number || '',
+      acPartNumber: m.ac_part_number || '',
+      voterCardPath: m.voter_card_path || '',
+      voterCardBackPath: m.voter_card_back_path || '',
+      panNumber: m.pan_number || '',
+      panCardPath: m.pan_card_path || '',
+      isLiterate: m.is_literate !== false,
+      highestQualification: m.highest_qualification || '',
+      employmentStatus: m.employment_status || '',
+      caaStatus: m.caa_status || 'Not Applicable',
+      caaNumber: m.caa_number || '',
+      otherCardType: m.other_card_type || '',
+      otherCardNumber: m.other_card_number || '',
+      otherCardIssueDate: m.other_card_issue_date || '',
+      tribunalStatus: m.tribunal_status || 'Not Applicable',
+      tribunalDetails: m.tribunal_details || '',
+      dbtReceiving: m.dbt_receiving || false,
+      dbtSchemes: m.dbt_schemes || ''
     })),
     bankDetails: bankRes.rows.map(b => ({
       memberAadhaar: b.member_aadhaar,
@@ -173,7 +213,9 @@ async function getApplicationDataForPdf(appId: number): Promise<any> {
     })),
     epicDetails: {
       epicNumber: e.epic_number || '',
-      acPartNumber: e.ac_part_number || ''
+      acPartNumber: e.ac_part_number || '',
+      voterCardPath: e.voter_card_path || '',
+      voterCardBackPath: e.voter_card_back_path || ''
     },
     panDetails: {
       panNumber: p.pan_number || ''
@@ -235,6 +277,15 @@ export const generatePdf = async (req: Request, res: Response) => {
         hofCategory: b.family?.hofCategory || '',
         householdId: b.family?.householdId || '',
         casteCertificatePath: b.family?.casteCertificatePath || '',
+        caaStatus: b.family?.caaStatus || 'Not Applicable',
+        caaNumber: b.family?.caaNumber || '',
+        otherCardType: b.family?.otherCardType || '',
+        otherCardNumber: b.family?.otherCardNumber || '',
+        otherCardIssueDate: b.family?.otherCardIssueDate || '',
+        tribunalStatus: b.family?.tribunalStatus || 'Not Applicable',
+        tribunalDetails: b.family?.tribunalDetails || '',
+        dbtReceiving: b.family?.dbtReceiving || false,
+        dbtSchemes: b.family?.dbtSchemes || '',
         members: b.members || [],
         bankDetails: b.bankDetails || [],
         epicDetails: b.epicDetails || {},
@@ -316,7 +367,7 @@ export const generatePdf = async (req: Request, res: Response) => {
         page.drawText(String(text), {
           x,
           y: y + 2,
-          size,
+          size: size + 2,
           font: handwritingFont,
           color: blueInk
         });
@@ -357,6 +408,35 @@ export const generatePdf = async (req: Request, res: Response) => {
         });
       };
 
+      const getEmpChecks = (m: any, prefix: string, assets: any) => {
+        const status = m?.employmentStatus || m?.employment_status;
+        if (status) {
+          const s = status.toLowerCase();
+          return {
+            govt: s === 'govt' || s === 'government',
+            private: s === 'private',
+            formal_self: s === 'formalself' || s === 'formal_self' || s === 'formal self-employed',
+            part_time: s === 'parttime' || s === 'part_time' || s === 'part-time',
+            informal_self: s === 'informalself' || s === 'informal_self' || s === 'informal self-employed',
+            migrant: s === 'migrant',
+            unemployed: s === 'unemployed',
+            others: s === 'others' || s === 'other'
+          };
+        }
+        
+        // Fallback to assets
+        return {
+          govt: !!assets[`${prefix}Emp_Govt`],
+          private: !!assets[`${prefix}Emp_Private`],
+          formal_self: !!assets[`${prefix}Emp_FormalSelf`],
+          part_time: !!assets[`${prefix}Emp_PartTime`],
+          informal_self: !!assets[`${prefix}Emp_InformalSelf`],
+          migrant: !!assets[`${prefix}Emp_Migrant`],
+          unemployed: !!assets[`${prefix}Emp_Unemployed`],
+          others: !!assets[`${prefix}Emp_Others`]
+        };
+      };
+
       // -------------------------------------------------------------
       // PAGE 1: Family Identity & Members 1-3
       // -------------------------------------------------------------
@@ -372,8 +452,8 @@ export const generatePdf = async (req: Request, res: Response) => {
       drawTextVal(p1, appData.hofAadhaar, 220, 562.8, 10);
       drawTextVal(p1, appData.householdId, 220, 534.0, 10);
       
-      const mList = appData.members || [];
-      const familySize = appData.assets?.familySize || (mList.filter((m: any) => m.name).length + 1);
+      const mList = (appData.members || []).filter((m: any) => m.name?.trim() || m.aadhaar?.trim() || m.epicNumber?.trim());
+      const familySize = appData.assets?.familySize !== undefined && appData.assets?.familySize !== '' ? appData.assets.familySize : String(mList.length);
       drawTextVal(p1, familySize, 220, 508.6, 10);
       
       if (appData.hofAddress) {
@@ -386,6 +466,12 @@ export const generatePdf = async (req: Request, res: Response) => {
       }
       
       drawTextVal(p1, appData.hofMobile, 220, 424.1, 10);
+
+      // 9. Name, DOB, Gender, Relation with Head of Family, Aadhaar (of all family members)
+      // Draw HOF details next to HOF: under section 9
+      const hofDetailsStr = `${appData.hofName} | DOB: ${formatDob(appData.hofDob)} | Gender: ${appData.hofGender} | Relation: Self | Aadhaar: ${appData.hofAadhaar}`;
+      drawTextVal(p1, hofDetailsStr, 250, 345.6, 7.5);
+      drawTick(p1, 433.8, 347.5, true); // HOF Apply Tick
 
       // Member 1-3
       if (mList.length > 0) {
@@ -443,27 +529,30 @@ export const generatePdf = async (req: Request, res: Response) => {
       const banks = appData.bankDetails || [];
       const hofBank = banks.find((b: any) => b.memberAadhaar === appData.hofAadhaar) || banks[0];
       if (hofBank) {
-        drawTextVal(p2, hofBank.bankName, 280, 603.7, 9);
-        drawTextVal(p2, hofBank.accountNumber, 260, 580.9, 9);
-        drawTextVal(p2, hofBank.ifsc, 250, 558.2, 9);
+        drawTextVal(p2, hofBank.bankName, 280, 603.8, 9);
+        drawTextVal(p2, hofBank.accountNumber, 260, 580.8, 9);
+        drawTextVal(p2, hofBank.ifsc, 250, 557.8, 9);
       }
       
       // Each entry: [bankNameY, accountNumberY, ifscY]
       const memberBankYCoords = [
-        [534.6, 511.9, 489.2],  // Member 1
-        [465.6, 442.8, 420.1],  // Member 2
-        [393.2, 367.1, 340.1],  // Member 3
-        [313.2, 287.1, 260.2],  // Member 4
-        [234.1, 207.1, 180.2],  // Member 5
+        [534.7, 511.9, 488.9],  // Member 1
+        [465.8, 442.8, 419.8],  // Member 2
+        [393.4, 366.7, 340.1],  // Member 3
+        [313.4, 286.8, 260.4],  // Member 4
+        [233.8, 207.1, 180.5],  // Member 5
       ];
       mList.forEach((m: any, idx: number) => {
         if (idx >= 5) return;
-        const mb = banks.find((b: any) => b.memberAadhaar === m.aadhaar) || banks[idx + 1];
-        if (mb && (mb.bankName || mb.accountNumber || mb.ifsc)) {
+        const bankName = m.bankName || (banks.find((b: any) => b.memberAadhaar === m.aadhaar) || banks[idx + 1] || {}).bankName || '';
+        const accountNumber = m.accountNumber || (banks.find((b: any) => b.memberAadhaar === m.aadhaar) || banks[idx + 1] || {}).accountNumber || '';
+        const ifsc = m.ifsc || (banks.find((b: any) => b.memberAadhaar === m.aadhaar) || banks[idx + 1] || {}).ifsc || '';
+
+        if (bankName || accountNumber || ifsc) {
           const [yName, yAcct, yIfsc] = memberBankYCoords[idx];
-          drawTextVal(p2, mb.bankName, 280, yName, 9);
-          drawTextVal(p2, mb.accountNumber, 280, yAcct, 9);
-          drawTextVal(p2, mb.ifsc, 250, yIfsc, 9);
+          drawTextVal(p2, bankName, 280, yName, 9);
+          drawTextVal(p2, accountNumber, 280, yAcct, 9);
+          drawTextVal(p2, ifsc, 250, yIfsc, 9);
         }
       });
 
@@ -473,22 +562,73 @@ export const generatePdf = async (req: Request, res: Response) => {
         drawTextVal(p2, appData.epicDetails.acPartNumber, 290, 140.2, 9);
       }
 
+      // Member 1 & 2 Voter EPIC Details on Page 2
+      if (mList.length > 0) {
+        const m1 = mList[0];
+        if (m1.epicNumber || m1.acPartNumber) {
+          drawTextVal(p2, m1.epicNumber, 310, 113.5, 9);
+          drawTextVal(p2, m1.acPartNumber, 310, 100.3, 9);
+        }
+      }
+      if (mList.length > 1) {
+        const m2 = mList[1];
+        if (m2.epicNumber || m2.acPartNumber) {
+          drawTextVal(p2, m2.epicNumber, 310, 73.7, 9);
+          drawTextVal(p2, m2.acPartNumber, 310, 60.2, 9);
+        }
+      }
+
       // -------------------------------------------------------------
       // PAGE 3: EPIC continued, Category, Ration, Assets & Insurance HOF + Member 1-3
       // -------------------------------------------------------------
       const p3 = pages[2];
+       // Member 3, 4 & 5 Voter EPIC Details on Page 3
+      if (mList.length > 2) {
+        const m3 = mList[2];
+        if (m3.epicNumber || m3.acPartNumber) {
+          drawTextVal(p3, m3.epicNumber, 310, 753.1, 9);
+          drawTextVal(p3, m3.acPartNumber, 310, 739.9, 9);
+        }
+      }
+      if (mList.length > 3) {
+        const m4 = mList[3];
+        if (m4.epicNumber || m4.acPartNumber) {
+          drawTextVal(p3, m4.epicNumber, 310, 713.3, 9);
+          drawTextVal(p3, m4.acPartNumber, 310, 700.1, 9);
+        }
+      }
+      if (mList.length > 4) {
+        const m5 = mList[4];
+        if (m5.epicNumber || m5.acPartNumber) {
+          drawTextVal(p3, m5.epicNumber, 310, 673.4, 9);
+          drawTextVal(p3, m5.acPartNumber, 310, 660.0, 9);
+        }
+      }
       
       const cat = appData.hofCategory || '';
       drawTick(p3, 217.2, 621.6, cat.toUpperCase() === 'GENERAL' || cat.toUpperCase() === 'UR');
-      drawTick(p3, 327.8, 621.6, cat.toUpperCase() === 'SC');
-      drawTick(p3, 363.6, 621.6, cat.toUpperCase() === 'ST');
-      drawTick(p3, 228.3, 608.4, cat.toUpperCase() === 'OBC');
-
+      drawTick(p3, 316.7, 621.6, cat.toUpperCase() === 'SC');
+      drawTick(p3, 352.5, 621.6, cat.toUpperCase() === 'ST');
+      drawTick(p3, 217.2, 608.4, cat.toUpperCase() === 'OBC');
+ 
       const hasRation = !!appData.householdId;
       drawTick(p3, 217.2, 562.6, hasRation);
       drawTick(p3, 258.9, 562.6, !hasRation);
       if (hasRation) {
-        drawTick(p3, 265.0, 542.2, true);
+        const householdIdStr = String(appData.householdId || '').toUpperCase();
+        const isAAY = householdIdStr.includes('AAY');
+        const isSPHH = householdIdStr.includes('SPHH');
+        const isPHH = householdIdStr.includes('PHH') && !isSPHH;
+        const isRKSY1 = householdIdStr.includes('RKSY1') || householdIdStr.includes('RKSY 1');
+        const isRKSY2 = householdIdStr.includes('RKSY2') || householdIdStr.includes('RKSY 2');
+        const isNonSub = !isAAY && !isPHH && !isSPHH && !isRKSY1 && !isRKSY2;
+ 
+        drawTick(p3, 217.2, 542.2, isAAY);
+        drawTick(p3, 265.0, 542.2, isPHH);
+        drawTick(p3, 311.1, 542.2, isSPHH);
+        drawTick(p3, 217.2, 529.0, isRKSY1);
+        drawTick(p3, 265.0, 529.0, isRKSY2);
+        drawTick(p3, 311.1, 529.0, isNonSub);
       }
       drawTick(p3, 217.2, 508.3, true);
 
@@ -528,47 +668,77 @@ export const generatePdf = async (req: Request, res: Response) => {
       // PAGE 4: Member 4-5 health ins, Income tax, PAN Details, Nature of employment HOF & Member 1-2
       // -------------------------------------------------------------
       const p4 = pages[3];
-      const hasPan = !!appData.panDetails?.panNumber;
-      drawTick(p4, 217.2, 644.2, hasPan);
-      drawTick(p4, 217.2, 629.0, !hasPan);
+      const hofPan = appData.panDetails?.panNumber || '';
+      const hasHofPan = !!hofPan;
       
-      if (hasPan) {
-        drawTextVal(p4, appData.hofName, 235, 617.3, 9);
-        drawTextVal(p4, appData.panDetails.panNumber, 245, 605.8, 9);
+      let hasAnyMemberPan = false;
+      mList.forEach((m: any) => {
+        if (m.panNumber) {
+          hasAnyMemberPan = true;
+        }
+      });
+      
+      const isAnyPanAvailable = hasHofPan || hasAnyMemberPan;
+      drawTick(p4, 217.2, 644.2, isAnyPanAvailable);
+      drawTick(p4, 217.2, 629.0, !isAnyPanAvailable);
+      
+      if (hasHofPan) {
+        drawTextVal(p4, appData.hofName, 240, 617.3, 9);
+        drawTextVal(p4, hofPan, 250, 605.8, 9);
       }
       
+      const memberPanCoords = [
+        { nameY: 594.2, panY: 582.7 }, // Member 1
+        { nameY: 569.5, panY: 556.3 }, // Member 2
+        { nameY: 542.9, panY: 529.7 }, // Member 3
+        { nameY: 516.5, panY: 503.0 }, // Member 4
+        { nameY: 489.8, panY: 476.4 }  // Member 5
+      ];
+      
+      mList.forEach((m: any, idx: number) => {
+        if (idx >= 5) return;
+        if (m.panNumber) {
+          const coords = memberPanCoords[idx];
+          drawTextVal(p4, m.name, 260, coords.nameY, 9);
+          drawTextVal(p4, m.panNumber, 260, coords.panY, 9);
+        }
+      });
+      
       // HOF Employment Status Checkboxes
-      drawTick(p4, 217.2, 451.4, assets.hofEmp_Govt);
-      drawTick(p4, 316.3, 451.4, assets.hofEmp_Private);
-      drawTick(p4, 272.7, 438.2, assets.hofEmp_FormalSelf);
-      drawTick(p4, 397.2, 424.8, assets.hofEmp_PartTime);
-      drawTick(p4, 297.2, 411.6, assets.hofEmp_InformalSelf);
-      drawTick(p4, 397.4, 398.2, assets.hofEmp_Migrant);
-      drawTick(p4, 306.1, 385.0, assets.hofEmp_Unemployed);
-      drawTick(p4, 386.3, 385.0, assets.hofEmp_Others);
+      const hofEmp = getEmpChecks(null, 'hof', assets);
+      drawTick(p4, 217.2, 451.4, hofEmp.govt);
+      drawTick(p4, 316.3, 451.4, hofEmp.private);
+      drawTick(p4, 272.7, 438.2, hofEmp.formal_self);
+      drawTick(p4, 397.2, 424.8, hofEmp.part_time);
+      drawTick(p4, 297.2, 411.6, hofEmp.informal_self);
+      drawTick(p4, 397.4, 398.2, hofEmp.migrant);
+      drawTick(p4, 306.1, 385.0, hofEmp.unemployed);
+      drawTick(p4, 386.3, 385.0, hofEmp.others);
 
       // Member 1 Employment Status (if exists)
       if (mList.length > 0) {
-        drawTick(p4, 217.2, 337.4, assets.m1Emp_Govt);
-        drawTick(p4, 316.3, 337.4, assets.m1Emp_Private);
-        drawTick(p4, 272.7, 324.2, assets.m1Emp_FormalSelf);
-        drawTick(p4, 397.2, 311.0, assets.m1Emp_PartTime);
-        drawTick(p4, 297.2, 297.8, assets.m1Emp_InformalSelf);
-        drawTick(p4, 397.4, 284.4, assets.m1Emp_Migrant);
-        drawTick(p4, 306.1, 271.2, assets.m1Emp_Unemployed);
-        drawTick(p4, 386.3, 271.2, assets.m1Emp_Others);
+        const m1Emp = getEmpChecks(mList[0], 'm1', assets);
+        drawTick(p4, 217.2, 337.4, m1Emp.govt);
+        drawTick(p4, 316.3, 337.4, m1Emp.private);
+        drawTick(p4, 272.7, 324.2, m1Emp.formal_self);
+        drawTick(p4, 397.2, 311.0, m1Emp.part_time);
+        drawTick(p4, 297.2, 297.8, m1Emp.informal_self);
+        drawTick(p4, 397.4, 284.4, m1Emp.migrant);
+        drawTick(p4, 306.1, 271.2, m1Emp.unemployed);
+        drawTick(p4, 386.3, 271.2, m1Emp.others);
       }
 
       // Member 2 Employment Status (if exists)
       if (mList.length > 1) {
-        drawTick(p4, 217.2, 222.0, assets.m2Emp_Govt);
-        drawTick(p4, 316.3, 222.0, assets.m2Emp_Private);
-        drawTick(p4, 272.7, 208.8, assets.m2Emp_FormalSelf);
-        drawTick(p4, 397.2, 195.4, assets.m2Emp_PartTime);
-        drawTick(p4, 297.2, 182.2, assets.m2Emp_InformalSelf);
-        drawTick(p4, 397.4, 168.7, assets.m2Emp_Migrant);
-        drawTick(p4, 306.1, 155.5, assets.m2Emp_Unemployed);
-        drawTick(p4, 386.3, 155.5, assets.m2Emp_Others);
+        const m2Emp = getEmpChecks(mList[1], 'm2', assets);
+        drawTick(p4, 217.2, 222.0, m2Emp.govt);
+        drawTick(p4, 316.3, 222.0, m2Emp.private);
+        drawTick(p4, 272.7, 208.8, m2Emp.formal_self);
+        drawTick(p4, 397.2, 195.4, m2Emp.part_time);
+        drawTick(p4, 297.2, 182.2, m2Emp.informal_self);
+        drawTick(p4, 397.4, 168.7, m2Emp.migrant);
+        drawTick(p4, 306.1, 155.5, m2Emp.unemployed);
+        drawTick(p4, 386.3, 155.5, m2Emp.others);
       }
 
       // -------------------------------------------------------------
@@ -578,50 +748,85 @@ export const generatePdf = async (req: Request, res: Response) => {
       
       // Member 3 Employment Status (if exists)
       if (mList.length > 2) {
-        drawTick(p5, 217.2, 766.8, assets.m3Emp_Govt);
-        drawTick(p5, 316.3, 766.8, assets.m3Emp_Private);
-        drawTick(p5, 272.7, 753.6, assets.m3Emp_FormalSelf);
-        drawTick(p5, 397.2, 740.2, assets.m3Emp_PartTime);
-        drawTick(p5, 297.2, 727.0, assets.m3Emp_InformalSelf);
-        drawTick(p5, 397.4, 713.8, assets.m3Emp_Migrant);
-        drawTick(p5, 306.1, 700.4, assets.m3Emp_Unemployed);
-        drawTick(p5, 386.3, 700.4, assets.m3Emp_Others);
+        const m3Emp = getEmpChecks(mList[2], 'm3', assets);
+        drawTick(p5, 217.2, 766.8, m3Emp.govt);
+        drawTick(p5, 316.3, 766.8, m3Emp.private);
+        drawTick(p5, 272.7, 753.6, m3Emp.formal_self);
+        drawTick(p5, 397.2, 740.2, m3Emp.part_time);
+        drawTick(p5, 297.2, 727.0, m3Emp.informal_self);
+        drawTick(p5, 397.4, 713.8, m3Emp.migrant);
+        drawTick(p5, 306.1, 700.4, m3Emp.unemployed);
+        drawTick(p5, 386.3, 700.4, m3Emp.others);
       }
 
       // Member 4 Employment Status (if exists)
       if (mList.length > 3) {
-        drawTick(p5, 217.2, 666.0, assets.m4Emp_Govt);
-        drawTick(p5, 316.3, 666.0, assets.m4Emp_Private);
-        drawTick(p5, 272.7, 652.5, assets.m4Emp_FormalSelf);
-        drawTick(p5, 397.2, 639.0, assets.m4Emp_PartTime);
-        drawTick(p5, 297.2, 626.4, assets.m4Emp_InformalSelf);
-        drawTick(p5, 397.4, 612.9, assets.m4Emp_Migrant);
-        drawTick(p5, 306.1, 599.5, assets.m4Emp_Unemployed);
-        drawTick(p5, 386.3, 599.5, assets.m4Emp_Others);
+        const m4Emp = getEmpChecks(mList[3], 'm4', assets);
+        drawTick(p5, 217.2, 666.0, m4Emp.govt);
+        drawTick(p5, 316.3, 666.0, m4Emp.private);
+        drawTick(p5, 272.7, 652.5, m4Emp.formal_self);
+        drawTick(p5, 397.2, 639.0, m4Emp.part_time);
+        drawTick(p5, 297.2, 626.4, m4Emp.informal_self);
+        drawTick(p5, 397.4, 612.9, m4Emp.migrant);
+        drawTick(p5, 306.1, 599.5, m4Emp.unemployed);
+        drawTick(p5, 386.3, 599.5, m4Emp.others);
       }
 
       // Member 5 Employment Status (if exists)
       if (mList.length > 4) {
-        drawTick(p5, 217.2, 550.2, assets.m5Emp_Govt);
-        drawTick(p5, 316.3, 550.2, assets.m5Emp_Private);
-        drawTick(p5, 272.7, 536.7, assets.m5Emp_FormalSelf);
-        drawTick(p5, 397.2, 523.3, assets.m5Emp_PartTime);
-        drawTick(p5, 297.2, 510.7, assets.m5Emp_InformalSelf);
-        drawTick(p5, 397.4, 497.2, assets.m5Emp_Migrant);
-        drawTick(p5, 306.1, 483.7, assets.m5Emp_Unemployed);
-        drawTick(p5, 386.3, 483.7, assets.m5Emp_Others);
+        const m5Emp = getEmpChecks(mList[4], 'm5', assets);
+        drawTick(p5, 217.2, 550.2, m5Emp.govt);
+        drawTick(p5, 316.3, 550.2, m5Emp.private);
+        drawTick(p5, 272.7, 536.7, m5Emp.formal_self);
+        drawTick(p5, 397.2, 523.3, m5Emp.part_time);
+        drawTick(p5, 297.2, 510.7, m5Emp.informal_self);
+        drawTick(p5, 397.4, 497.2, m5Emp.migrant);
+        drawTick(p5, 306.1, 483.7, m5Emp.unemployed);
+        drawTick(p5, 386.3, 483.7, m5Emp.others);
       }
 
       const eduList = appData.education || [];
-      const literateCount = eduList.filter((e: any) => e.isLiterate !== false).length + 1;
-      const illiterateCount = eduList.filter((e: any) => e.isLiterate === false).length;
-      drawTextVal(p5, literateCount, 220, 500.2, 9);
-      drawTextVal(p5, illiterateCount, 220, 487.0, 9);
-
-      // HOF Literacy
+      
+      // Compute HOF literacy
       const hofEdu = eduList.find((e: any) => e.memberAadhaar === appData.hofAadhaar) || eduList[0];
       const hofIsLit = hofEdu ? hofEdu.isLiterate !== false : true;
       const hofQual = hofEdu ? hofEdu.highestQualification : 'Graduate';
+      
+      // Compute member literacy details list
+      const memberEduList = mList.map((m: any) => {
+        if (m.isLiterate !== undefined) {
+          return {
+            isLiterate: m.isLiterate !== false,
+            highestQualification: m.highestQualification || ''
+          };
+        }
+        const me = eduList.find((e: any) => e.memberAadhaar === m.aadhaar);
+        if (me) {
+          return {
+            isLiterate: me.isLiterate !== false,
+            highestQualification: me.highestQualification || ''
+          };
+        }
+        return {
+          isLiterate: true,
+          highestQualification: 'Primary'
+        };
+      });
+
+      let totalLiterate = hofIsLit ? 1 : 0;
+      let totalIlliterate = hofIsLit ? 0 : 1;
+      memberEduList.forEach((me: any) => {
+        if (me.isLiterate) {
+          totalLiterate++;
+        } else {
+          totalIlliterate++;
+        }
+      });
+
+      drawTextVal(p5, totalLiterate, 220, 500.2, 9);
+      drawTextVal(p5, totalIlliterate, 220, 487.0, 9);
+
+      // HOF Literacy
       drawTick(p5, 217.2, 449.0, hofIsLit);
       drawTick(p5, 217.2, 433.9, !hofIsLit);
       if (hofIsLit) {
@@ -630,9 +835,9 @@ export const generatePdf = async (req: Request, res: Response) => {
 
       mList.forEach((m: any, idx: number) => {
         if (idx >= 4) return;
-        const me = eduList.find((e: any) => e.memberAadhaar === m.aadhaar);
-        const isLit = me ? me.isLiterate !== false : true;
-        const qual = me ? me.highestQualification : 'Primary';
+        const me = memberEduList[idx];
+        const isLit = me.isLiterate;
+        const qual = me.highestQualification;
         
         const litY = [380.6, 299.0, 219.4, 139.4][idx];
         const illitY = [365.5, 283.9, 204.2, 124.3][idx];
@@ -646,13 +851,13 @@ export const generatePdf = async (req: Request, res: Response) => {
       });
 
       // -------------------------------------------------------------
-      // PAGE 6: Member 5 Literate Highest Qualification, Total annual income
+      // PAGE 6: Member 5 Literate Highest Qualification, Total annual income & CAA Status
       // -------------------------------------------------------------
       const p6 = pages[5];
       if (mList.length > 4) {
-        const me = eduList.find((e: any) => e.memberAadhaar === mList[4].aadhaar);
-        const isLit = me ? me.isLiterate !== false : true;
-        const qual = me ? me.highestQualification : 'Primary';
+        const me = memberEduList[4];
+        const isLit = me.isLiterate;
+        const qual = me.highestQualification;
         
         drawTick(p6, 217.2, 764.9, isLit);
         drawTick(p6, 217.2, 749.8, !isLit);
@@ -660,7 +865,109 @@ export const generatePdf = async (req: Request, res: Response) => {
           drawTextVal(p6, qual, 320, 738.0, 9);
         }
       }
-      drawTextVal(p6, '120,000', 300, 450.0, 9);
+      
+      // Constitutional Post
+      drawTick(p6, 217.2, 722.6, appData.assets?.constitutionalPost_Yes === true);
+      drawTick(p6, 261.4, 722.6, appData.assets?.constitutionalPost_No === true || appData.assets?.constitutionalPost_Yes === false);
+      if (appData.assets?.constitutionalPost_Yes) {
+        drawTextVal(p6, appData.assets?.constitutionalPost_Member || '', 270, 709.2, 9);
+      }
+
+      // Government Pensioner
+      drawTick(p6, 217.2, 637.9, appData.assets?.govPensioner_Yes === true);
+      drawTick(p6, 261.4, 637.9, appData.assets?.govPensioner_No === true || appData.assets?.govPensioner_Yes === false);
+      if (appData.assets?.govPensioner_Yes) {
+        drawTextVal(p6, appData.assets?.govPensioner_Member || '', 280, 624.5, 9);
+      }
+
+      // GST Registered
+      drawTick(p6, 217.2, 574.6, appData.assets?.gstRegistered_Yes === true);
+      drawTick(p6, 261.4, 574.6, appData.assets?.gstRegistered_No === true || appData.assets?.gstRegistered_Yes === false);
+      if (appData.assets?.gstRegistered_Yes) {
+        drawTextVal(p6, appData.assets?.gstin || '', 485, 576.2, 9);
+      }
+
+      // Annual Family Income
+      const annualIncomeVal = appData.assets?.annualIncome ? String(appData.assets.annualIncome) : '';
+      drawTextVal(p6, annualIncomeVal, 300, 550.8, 9);
+
+      // CAA Application Status (HOF & Members 1-5)
+      const caaProfiles = [
+        { status: appData.caaStatus, number: appData.caaNumber },
+        ...mList.map((m: any) => ({ status: m.caaStatus, number: m.caaNumber }))
+      ];
+      const caaY = [
+        [483.6, 468.5, 453.4], // HOF
+        [415.2, 400.1, 385.0], // Member 1
+        [345.1, 330.0, 314.9], // Member 2
+        [275.0, 259.9, 244.8], // Member 3
+        [206.6, 191.5, 176.4], // Member 4
+        [123.4, 108.2, 93.1]   // Member 5
+      ];
+      for (let i = 0; i < 6; i++) {
+        const profile = caaProfiles[i] || { status: 'Not Applicable', number: '' };
+        const status = profile.status || 'Not Applicable';
+        const num = profile.number || '';
+        const yCoords = caaY[i];
+
+        if (status === 'Applied') {
+          drawTick(p6, 217.2, yCoords[1], true);
+          drawTextVal(p6, num, 380, yCoords[1], 9);
+        } else if (status === 'Issued') {
+          drawTick(p6, 217.2, yCoords[2], true);
+          drawTextVal(p6, num, 380, yCoords[2], 9);
+        } else {
+          drawTick(p6, 217.2, yCoords[0], true);
+        }
+      }
+
+      // -------------------------------------------------------------
+      // PAGE 7: Credit Cards & Tribunal Pending Cases
+      // -------------------------------------------------------------
+      const p7 = pages[6];
+
+      // Credit Card Details (HOF & Members 1-5)
+      const ccProfiles = [
+        { type: appData.otherCardType, number: appData.otherCardNumber, date: appData.otherCardIssueDate },
+        ...mList.map((m: any) => ({ type: m.otherCardType, number: m.otherCardNumber, date: m.otherCardIssueDate }))
+      ];
+      const ccTypeY = [768.2, 716.9, 665.3, 613.9, 562.6, 511.2];
+      const ccNumberY = [755.0, 703.7, 652.1, 600.7, 549.4, 498.0];
+      const ccDateY = [741.6, 690.2, 638.9, 587.5, 536.2, 484.8];
+
+      for (let i = 0; i < 6; i++) {
+        const profile = ccProfiles[i];
+        if (profile && (profile.type || profile.number || profile.date)) {
+          const typeX = i === 0 ? 250 : 270;
+          if (profile.type) drawTextVal(p7, profile.type, typeX, ccTypeY[i], 9);
+          if (profile.number) drawTextVal(p7, profile.number, 250, ccNumberY[i], 9);
+          if (profile.date) drawTextVal(p7, profile.date, 275, ccDateY[i], 9);
+        }
+      }
+
+      // Tribunal Pending Cases (HOF & Members 1-5)
+      const tribunalProfiles = [
+        { status: appData.tribunalStatus, details: appData.tribunalDetails },
+        ...mList.map((m: any) => ({ status: m.tribunalStatus, details: m.tribunalDetails }))
+      ];
+      const tribNaY = [444.5, 376.1, 306.0, 235.9, 165.8, 95.8];
+      const tribNoY = [429.4, 361.0, 290.9, 220.8, 150.7, 80.6];
+      const tribYesY = [414.2, 345.8, 275.8, 205.7, 135.6, 65.5];
+
+      for (let i = 0; i < 6; i++) {
+        const profile = tribunalProfiles[i] || { status: 'Not Applicable', details: '' };
+        const status = profile.status || 'Not Applicable';
+        const details = profile.details || '';
+
+        if (status === 'No') {
+          drawTick(p7, 217.2, tribNoY[i], true);
+        } else if (status === 'Yes') {
+          drawTick(p7, 217.2, tribYesY[i], true);
+          if (details) drawTextVal(p7, details, 350, tribYesY[i], 9);
+        } else {
+          drawTick(p7, 217.2, tribNaY[i], true);
+        }
+      }
 
       // -------------------------------------------------------------
       // PAGE 8: Children Education
@@ -669,16 +976,123 @@ export const generatePdf = async (req: Request, res: Response) => {
       const kids = appData.children || [];
       kids.forEach((c: any, idx: number) => {
         if (idx >= 4) return;
-        const yVal = 630.0 - idx * 64;
-        drawTextVal(p8, idx + 1, 90, yVal, 9);
-        drawTextVal(p8, c.name, 150, yVal, 9);
-        drawTextVal(p8, c.className, 300, yVal, 9);
-        drawTextVal(p8, c.schoolName, 380, yVal, 8);
+        if (!c.name && !c.schoolName) return; // Only draw if the child exists
         
-        const isGovt = c.schoolType?.toLowerCase().includes('govt') || c.schoolType?.toLowerCase().includes('government');
-        drawTick(p8, 35, yVal - 20, isGovt);
-        drawTick(p8, 100, yVal - 20, !isGovt);
+        const yBase = 666.0 - idx * 153.5;
+        
+        // Draw Child details
+        drawTextVal(p8, c.name, 300, yBase, 9);
+        drawTextVal(p8, c.className, 260, yBase - 13.2, 9);
+        drawTextVal(p8, c.schoolName, 300, yBase - 26.6, 9);
+        
+        // Draw School Type ticks
+        const schoolType = (c.schoolType || '').toLowerCase();
+        const isGovt = schoolType.includes('govt') || schoolType.includes('government') || schoolType.includes('aided') || schoolType.includes('sponsored');
+        const isPrivate = schoolType.includes('private');
+        const isRecMadrasah = schoolType.includes('recognized madrasah') || schoolType.includes('rec') && schoolType.includes('madrasah');
+        const isOtherMadrasah = schoolType.includes('other madrasah') || schoolType.includes('other') && schoolType.includes('madrasah') && !isRecMadrasah;
+        const isOthers = !isGovt && !isPrivate && !isRecMadrasah && !isOtherMadrasah && schoolType.length > 0;
+        
+        drawTick(p8, 217.2, yBase - 53.0, isGovt);
+        drawTick(p8, 217.2, yBase - 68.2, isPrivate);
+        drawTick(p8, 217.2, yBase - 83.3, isRecMadrasah);
+        drawTick(p8, 217.2, yBase - 98.4, isOtherMadrasah);
+        drawTick(p8, 217.2, yBase - 113.5, isOthers);
       });
+
+      // -------------------------------------------------------------
+      // PAGE 9 & 10: Checkboxes & Lists (Vaccination & DBT)
+      // -------------------------------------------------------------
+      const p9 = pages[8];
+      
+      // Children Vaccination Checkboxes (Page 8 for Child 1 Yes, Page 9 for Child 1 No & Child 2-4)
+      if (kids.length > 0) {
+        const isVac = kids[0].isVaccinated === true;
+        drawTick(p8, 217.2, 63.1, isVac);
+        drawTick(p9, 217.2, 764.9, !isVac);
+        if (isVac) {
+          drawTextVal(p8, kids[0].vaccinationCardId, 520, 63.1, 9);
+        }
+      }
+      if (kids.length > 1) {
+        const isVac = kids[1].isVaccinated === true;
+        drawTick(p9, 217.2, 723.1, isVac);
+        drawTick(p9, 217.2, 708.0, !isVac);
+        if (isVac) {
+          drawTextVal(p9, kids[1].vaccinationCardId, 520, 723.1, 9);
+        }
+      }
+      if (kids.length > 2) {
+        const isVac = kids[2].isVaccinated === true;
+        drawTick(p9, 217.2, 666.2, isVac);
+        drawTick(p9, 217.2, 651.1, !isVac);
+        if (isVac) {
+          drawTextVal(p9, kids[2].vaccinationCardId, 520, 666.2, 9);
+        }
+      }
+      if (kids.length > 3) {
+        const isVac = kids[3].isVaccinated === true;
+        drawTick(p9, 217.2, 609.6, isVac);
+        drawTick(p9, 217.2, 594.5, !isVac);
+        if (isVac) {
+          drawTextVal(p9, kids[3].vaccinationCardId, 520, 609.6, 9);
+        }
+      }
+
+      // DBT Welfare Schemes (HOF & Members 1-5)
+      const dbtProfiles = [
+        { receiving: appData.dbtReceiving === true || appData.governmentSchemes?.dbtReceiving === true, schemes: appData.dbtSchemes || appData.governmentSchemes?.schemesList?.join(', ') || '' },
+        ...mList.map((m: any) => ({ receiving: m.dbtReceiving === true, schemes: m.dbtSchemes || '' }))
+      ];
+
+      const dbtYesCheckCoords = [
+        { page: p9, x: 242.7, y: 540.2 }, // HOF Page 9
+        { page: p9, x: 263.9, y: 396.7 }, // Member 1 Page 9
+        { page: p9, x: 263.9, y: 253.0 }, // Member 2 Page 9
+        { page: p9, x: 263.9, y: 96.0 },  // Member 3 Page 9
+        { page: pages[9], x: 263.9, y: 649.7 }, // Member 4 Page 10
+        { page: pages[9], x: 263.9, y: 505.9 }  // Member 5 Page 10
+      ];
+      const dbtNoCheckCoords = [
+        { page: p9, x: 286.9, y: 540.2 }, // HOF Page 9
+        { page: p9, x: 308.0, y: 396.7 }, // Member 1 Page 9
+        { page: p9, x: 308.0, y: 253.0 }, // Member 2 Page 9
+        { page: p9, x: 308.0, y: 96.0 },  // Member 3 Page 9
+        { page: pages[9], x: 308.0, y: 649.7 }, // Member 4 Page 10
+        { page: pages[9], x: 308.0, y: 505.9 }  // Member 5 Page 10
+      ];
+      const dbtSchemesY = [
+        [487.0, 471.4, 455.8, 440.2, 424.6], // HOF Page 9
+        [342.2, 326.6, 311.0, 295.4, 279.8], // Member 1 Page 9
+        [198.7, 183.1, 167.5, 151.9, 136.3], // Member 2 Page 9
+        [739.0, 723.4, 707.8, 692.2, 676.6], // Member 3 Page 10
+        [595.4, 579.8, 564.2, 548.4, 532.8], // Member 4 Page 10
+        [451.7, 436.1, 420.5, 404.9, 389.3]  // Member 5 Page 10
+      ];
+      const dbtSchemesPages = [ p9, p9, p9, pages[9], pages[9], pages[9] ];
+
+      for (let i = 0; i < 6; i++) {
+        const profile = dbtProfiles[i] || { receiving: false, schemes: '' };
+        const receiving = profile.receiving;
+        const schemes = profile.schemes || '';
+
+        const yesCoord = dbtYesCheckCoords[i];
+        const noCoord = dbtNoCheckCoords[i];
+
+        drawTick(yesCoord.page, yesCoord.x, yesCoord.y, receiving);
+        drawTick(noCoord.page, noCoord.x, noCoord.y, !receiving);
+
+        if (receiving && schemes) {
+          const list = schemes.split(',').map(s => s.trim()).filter(Boolean);
+          const yBases = dbtSchemesY[i];
+          const pageTarget = dbtSchemesPages[i];
+          list.forEach((sName, sIdx) => {
+            if (sIdx < 5) {
+              drawTextVal(pageTarget, sName, 250, yBases[sIdx], 9);
+            }
+          });
+        }
+      }
 
       // -------------------------------------------------------------
       // PAGE 10: Consent & Signature
@@ -686,9 +1100,18 @@ export const generatePdf = async (req: Request, res: Response) => {
       const p10 = pages[9];
       drawTick(p10, 217.2, 309.8, true);
 
-      if (appData.signature && appData.signature.startsWith('data:image/png;base64,')) {
+      let signatureStr = '';
+      if (appData.signature) {
+        if (typeof appData.signature === 'string') {
+          signatureStr = appData.signature;
+        } else if (typeof appData.signature === 'object' && appData.signature.signatureData) {
+          signatureStr = appData.signature.signatureData;
+        }
+      }
+
+      if (signatureStr && signatureStr.startsWith('data:image/png;base64,')) {
         try {
-          const sigBase64 = appData.signature.replace('data:image/png;base64,', '');
+          const sigBase64 = signatureStr.replace('data:image/png;base64,', '');
           const sigImageBytes = Buffer.from(sigBase64, 'base64');
           const cleanBytes = new Uint8Array(sigImageBytes); // Copy standard independent Uint8Array
           const embeddedSig = await pdfDoc.embedPng(cleanBytes);
@@ -1044,9 +1467,18 @@ export const generatePdf = async (req: Request, res: Response) => {
       page3.drawText('Signature / Thumb Impression of HOF', { x: 375, y: currentY - 12, size: 7.5, font: labelFont });
 
       // Embed Signature Canvas PNG if exists
-      if (appData.signature && appData.signature.startsWith('data:image/png;base64,')) {
+      let signatureStr2 = '';
+      if (appData.signature) {
+        if (typeof appData.signature === 'string') {
+          signatureStr2 = appData.signature;
+        } else if (typeof appData.signature === 'object' && appData.signature.signatureData) {
+          signatureStr2 = appData.signature.signatureData;
+        }
+      }
+
+      if (signatureStr2 && signatureStr2.startsWith('data:image/png;base64,')) {
         try {
-          const sigBase64 = appData.signature.replace('data:image/png;base64,', '');
+          const sigBase64 = signatureStr2.replace('data:image/png;base64,', '');
           const sigImageBytes = Buffer.from(sigBase64, 'base64');
           const cleanBytes = new Uint8Array(sigImageBytes); // Copy standard independent Uint8Array
           const embeddedSig = await pdfDoc.embedPng(cleanBytes);
